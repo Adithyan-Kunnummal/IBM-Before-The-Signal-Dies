@@ -6,7 +6,7 @@ An interactive map for planning disaster communications in Western Australia:
 - Runs a **disaster scenario**: Optus sites inside an area fail, and the map shows which communities lose coverage and how many residents are affected.
 - **Re-bands susceptibility live**: localities that lose nearby sites are recalculated with the index's own scaling, and the map shows which ones move up a band.
 - Places **temporary communications units** where they restore coverage to the most residents.
-- **Scores the trained model live on LinuxONE** with XGBoost and IBM Snap ML. On machines with the Telum on-chip AI accelerator, Snap ML runs inference on it.
+- **Scores the trained model live on LinuxONE** with XGBoost and IBM Snap ML, on the CPU cores and on the Telum on-chip AI accelerator.
 - Explains any locality in plain language, built directly from its measured facts.
 
 The simulation, re-banding and web server use the Python standard library only. Live model inference needs `numpy`, `xgboost` and `snapml` (see `requirements.txt`); without them the app still runs and says which library is missing. The map library (Leaflet 1.9.4) is bundled in `static/vendor`. Map tiles come from OpenStreetMap and need internet access in the viewer's browser; without it, the localities and sites still draw on a plain background.
@@ -29,9 +29,21 @@ At start-up the server prints the processor, whether the AI accelerator (`nnpa`)
 `model_service.py` loads `models/xgb_pu_outage.json` (trained on LinuxONE) with both libraries:
 
 - **XGBoost** on the CPU, also used for each locality's feature contributions.
-- **IBM Snap ML**, asked first for its `zdnn_tensors` tree format, which runs tree-ensemble inference on the Telum Integrated Accelerator for AI. If that format is unavailable it falls back to `auto`. Override the order with `SNAPML_TREE_FORMATS=auto,compress_trees`.
+- **IBM Snap ML on the CPU** (`compress_trees` tree format).
+- **IBM Snap ML on Telum** (`zdnn_tensors` tree format), which runs the trees on the Integrated Accelerator for AI. It is loaded only when the processor reports `nnpa`; it also needs IBM's zDNN library (`sudo apt install libzdnn0` on Ubuntu; the container installs it).
 
-Every library's predictions are checked against the stored scores at start-up; the app only labels Snap ML as using Telum when the `zdnn_tensors` format actually loaded on a processor that reports `nnpa`. The "Running on LinuxONE" panel shows this and runs an inference benchmark for each library.
+Snap ML 1.17 cannot read the XGBoost 3 JSON layout ("no objective defined"), so the app writes a temporary copy in the XGBoost 2 layout. Only the layout changes, not the trees. Every engine's predictions are checked against the stored scores at start-up. The "Running on LinuxONE" panel shows which engines loaded and where, and benchmarks them.
+
+Measured on LinuxONE (z17), median ms per batch:
+
+| Rows | Snap ML on Telum | Snap ML on CPU | XGBoost |
+|---:|---:|---:|---:|
+| 1,699 | 15.1 | 1.0 | 2.2 |
+| 16,990 | 66.3 | 9.8 | 20.4 |
+| 169,900 | 665.9 | 99.7 | 210.8 |
+| 509,700 | 1,992.1 | 299.0 | 640.6 |
+
+Snap ML on the CPU is about twice as fast as XGBoost. For this small model (150 trees of depth 2), the accelerator is slower than the cores at every batch size tested; it takes the work off the general-purpose cores and returns the same scores (within 1.5e-7).
 
 To check the accelerator directly:
 
@@ -39,7 +51,7 @@ To check the accelerator directly:
 python3 app/check_accelerator.py
 ```
 
-It prints the CPU details, which Snap ML tree formats load, whether they agree with XGBoost, and timings.
+It prints the CPU details, whether zDNN is installed, which Snap ML model layouts and tree formats load, whether they agree with XGBoost, and timings across batch sizes.
 
 ## Run it in a container
 

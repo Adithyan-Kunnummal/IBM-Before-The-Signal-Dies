@@ -132,9 +132,10 @@
       <div class="bench" id="bench" hidden>
         <table>
           <caption>Score all 1,699 localities in one batch (median of 30 runs)</caption>
-          <thead><tr><th scope="col">Library</th><th scope="col">Runs on</th><th scope="col">Batch</th><th scope="col">Per locality</th></tr></thead>
+          <thead><tr><th scope="col">Library</th><th scope="col">Runs on</th><th scope="col">Batch</th><th scope="col">Per locality</th><th scope="col">vs XGBoost</th></tr></thead>
           <tbody id="bench-rows"></tbody>
         </table>
+        <p class="hint">All engines score the same trained model and agree to within 0.0001. On LinuxONE, Snap ML on the CPU cores scores fastest. Snap ML can also run the model on the Telum on-chip AI accelerator, which takes the work off the general-purpose cores. For a model this small (150 trees of depth 2), the accelerator is slower than the cores at every batch size we tested, up to 510,000 rows.</p>
       </div>
       <p class="hint" id="platform-note"></p>
     </section>

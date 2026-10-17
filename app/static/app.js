@@ -392,10 +392,7 @@
     }
   }
 
-  const backendLabel = (name) => {
-    const info = (summary.model_service.backends || {})[name] || {};
-    return `${name === "snapml" ? "Snap ML" : "XGBoost"} on ${info.accelerator || "CPU"}`;
-  };
+  const backendLabel = (name) => ((summary.model_service.backends || {})[name] || {}).label || name;
   const featureLabel = (f) => f.replace(/_2025|_2021|_before_window/g, "").replace(/_/g, " ");
 
   function renderLiveModel(live) {
@@ -432,7 +429,7 @@
       ["Python", summary.server_python],
     ];
     Object.entries(ms.backends).forEach(([name, info]) => {
-      facts.push([`Model via ${name === "snapml" ? "Snap ML" : "XGBoost"}`,
+      facts.push([`Model via ${info.label || name}`,
         `${info.accelerator}${info.tree_format ? ` (${info.tree_format})` : ""}`]);
     });
     const dl = $("platform-facts");
@@ -459,12 +456,14 @@
       const b = await getJSON("api/model/benchmark");
       const rows = $("bench-rows");
       rows.replaceChildren();
+      const base = (b.results.xgboost || {}).median_ms;
       Object.entries(b.results).forEach(([name, r]) => {
         const tr = el("tr");
-        tr.appendChild(el("td", "", name === "snapml" ? "Snap ML" : "XGBoost"));
+        tr.appendChild(el("td", "", backendLabel(name)));
         tr.appendChild(el("td", "", ((b.backends[name] || {}).accelerator) || "CPU"));
         tr.appendChild(el("td", "num", `${r.median_ms} ms`));
         tr.appendChild(el("td", "num", `${r.per_locality_us} µs`));
+        tr.appendChild(el("td", "num", base ? `${(base / r.median_ms).toFixed(1)}×` : "–"));
         rows.appendChild(tr);
       });
       $("bench").hidden = false;

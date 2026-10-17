@@ -11,7 +11,6 @@ of the app keeps working.
 """
 import csv
 import json
-import os
 import platform
 import statistics
 import tempfile
@@ -23,10 +22,11 @@ MODEL_PATH = ROOT / "models" / "xgb_pu_outage.json"
 FEATURES_CSV = ROOT / "data" / "processed" / "wa_outage_modelling.csv"
 QUALITY_JSON = ROOT / "data" / "processed" / "outage_data_quality.json"
 
-# Snap ML tree formats to try, most accelerated first. "zdnn_tensors" targets the Telum
-# accelerator; "auto" lets Snap ML choose. Override with SNAPML_TREE_FORMATS=auto,compress_trees.
-SNAPML_TREE_FORMATS = [f.strip() for f in os.environ.get(
-    "SNAPML_TREE_FORMATS", "zdnn_tensors,auto").split(",") if f.strip()]
+# Snap ML engines: tree format, backend name, label. "compress_trees" runs on the CPU
+# cores; "zdnn_tensors" runs on the Telum on-chip AI accelerator and is only loaded when
+# the processor reports nnpa (elsewhere Snap ML would silently fall back to the CPU).
+SNAPML_ENGINES = [("compress_trees", "snapml_cpu", "Snap ML"),
+                  ("zdnn_tensors", "snapml_telum", "Snap ML on Telum")]
 AGREEMENT_TOLERANCE = 1e-3
 
 
@@ -121,7 +121,8 @@ class ModelService:
         def predict(X):
             return booster.predict(xgb.DMatrix(X, feature_names=self.features))
         self.backends["xgboost"] = predict
-        self.status["backends"]["xgboost"] = {"library": f"xgboost {xgb.__version__}", "accelerator": "CPU"}
+        self.status["backends"]["xgboost"] = {"label": "XGBoost", "library": f"xgboost {xgb.__version__}",
+                                          "accelerator": "CPU"}
 
     def _load_snapml(self):
         try:
@@ -130,34 +131,31 @@ class ModelService:
         except ImportError:
             self.status["errors"].append("snapml is not installed (pip install snapml on LinuxONE).")
             return
+        version = f"snapml {library_version('snapml')}".strip()
         errors = []
-        for layout, path in snapml_model_files():
-            for tree_format in SNAPML_TREE_FORMATS:
+        for tree_format, name, label in SNAPML_ENGINES:
+            if tree_format == "zdnn_tensors" and not self.cpu["nnpa"]:
+                continue
+            for layout, path in snapml_model_files():
                 model = BoostingMachineClassifier()
                 try:
-                    try:
-                        model.import_model(str(path), input_type="xgb_json", tree_format=tree_format)
-                    except TypeError:  # older Snap ML without tree_format
-                        model.import_model(str(path), input_type="xgb_json")
-                        tree_format = "default"
+                    model.import_model(str(path), input_type="xgb_json", tree_format=tree_format)
                     # One prediction proves the format works on this machine.
                     model.predict_proba(self.X[:2])
                 except Exception as exc:  # Snap ML raises various errors per format
-                    errors.append(f"{layout}/{tree_format}: {exc.__class__.__name__}: {exc}")
+                    errors.append(f"{tree_format}/{layout}: {exc.__class__.__name__}: {exc}")
                     continue
 
                 def predict(X, m=model):
                     return m.predict_proba(X)[:, 1]
-                self.backends["snapml"] = predict
-                self.status["backends"]["snapml"] = {
-                    "library": f"snapml {library_version('snapml')}".strip(),
-                    "model_layout": layout,
-                    "tree_format": tree_format,
-                    "accelerator": ("Telum AI accelerator (zDNN)" if tree_format == "zdnn_tensors" and self.cpu["nnpa"]
-                                    else "CPU"),
+                self.backends[name] = predict
+                self.status["backends"][name] = {
+                    "label": label, "library": version, "model_layout": layout, "tree_format": tree_format,
+                    "accelerator": "Telum AI accelerator (zDNN)" if tree_format == "zdnn_tensors" else "CPU",
                 }
-                return
-        self.status["errors"].append(f"Snap ML could not load the model ({'; '.join(errors)}).")
+                break
+        if errors and not any(n.startswith("snapml") for n in self.backends):
+            self.status["errors"].append(f"Snap ML could not load the model ({'; '.join(errors)}).")
 
     def _verify(self):
         stored = self.np.array(self.stored, dtype=float)
