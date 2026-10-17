@@ -1,0 +1,393 @@
+{
+  "dataset": "Optus' Mobile Sites (ACCC)",
+  "source_service": "https://spatial.infrastructure.gov.au/server/rest/services/Mobile_Coverages_and_Sites_ACCC/MapServer",
+  "layer": 2,
+  "infrastructure_snapshot": "2025-01-31",
+  "retrieved_at_utc": "2026-10-17T03:06:28.4600445Z",
+  "query_url": "https://spatial.infrastructure.gov.au/server/rest/services/Mobile_Coverages_and_Sites_ACCC/MapServer/2/query?where=1%3D1&geometry=112%2C-36%2C129%2C-13&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=true&outSR=4326&returnZ=false&returnM=false&orderByFields=OBJECTID%20ASC&resultRecordCount=2000&f=geojson",
+  "selection": {
+    "type": "bounding envelope",
+    "xmin": 112,
+    "ymin": -36,
+    "xmax": 129,
+    "ymax": -13,
+    "crs": "EPSG:4326",
+    "relationship": "intersects",
+    "note": "WA mainland study envelope, not an exact administrative boundary clip. Intersecting coverage polygons are returned whole."
+  },
+  "file": "optus_sites_wa_envelope_2025-01-31.geojson",
+  "bytes": 497758,
+  "sha256": "131E9525FA205E5308F017EB88690DA456A3A736039F36D7E4ADAEEA9BA55864",
+  "validation": {
+    "api_count": 963,
+    "downloaded_count": 963,
+    "all_object_ids_match": true,
+    "null_geometries": 0,
+    "geometry_types": [
+      "Point"
+    ],
+    "years": [
+      2025
+    ]
+  },
+  "source_layer_metadata": {
+    "currentVersion": 11.5,
+    "cimVersion": "3.5.0",
+    "id": 2,
+    "name": "Optus' Mobile Sites (ACCC)",
+    "type": "Feature Layer",
+    "description": "A mobile site hosts radio equipment that uses radiofrequency spectrum to provide connectivity to mobile devices. With the use of backhaul, end users are connected to their network provider’s core network for voice and data connectivity. A mobile site exists in various forms including on a mobile tower, on top of commercial or residential buildings and light poles as well as inside buildings, collectively referred to as passive infrastructure. Passive infrastructure may be owned and operated by a Mobile Network Operator (MNO) or a third party such as a specialist infrastructure provider.An MNO may deploy their equipment on the same passive infrastructure as another MNO(s). This is known as co-location, which is a form of passive infrastructure sharing (see section 3.7). Co-location is one way to reduce the cost of site deployment. This enhances the ability of MNOs to invest in additional mobile infrastructure to improve their coverage, thereby promoting competition in downstream markets. Due to the use of co-location, the total number of mobile towers/structures in Australia is not equal to sum of the mobile sites for each MNO.The data used for this layer have been sourced from the ACCC Mobile Infrastructure Report 2025The original datasets are available at data.gov.au at the following address: ACCC Mobile Infrastructure Report – data release",
+    "geometryType": "esriGeometryPoint",
+    "sourceSpatialReference": {
+      "wkid": 4326,
+      "latestWkid": 4326,
+      "xyTolerance": 8.98315284119521E-09,
+      "zTolerance": 0.001,
+      "mTolerance": 0.001,
+      "falseX": -400,
+      "falseY": -400,
+      "xyUnits": 999999999.9999999,
+      "falseZ": 0,
+      "zUnits": 1,
+      "falseM": 0,
+      "mUnits": 1
+    },
+    "spatialReference": {
+      "wkid": 4326,
+      "latestWkid": 4326,
+      "xyTolerance": 8.983152841195215E-09,
+      "zTolerance": 0.001,
+      "mTolerance": 0.001,
+      "falseX": -400,
+      "falseY": -400,
+      "xyUnits": 999999999.9999999,
+      "falseZ": -100000,
+      "zUnits": 10000,
+      "falseM": -100000,
+      "mUnits": 10000
+    },
+    "copyrightText": "ACCC - Mobile Infrastructure Report 2025",
+    "parentLayer": {
+      "id": 60,
+      "name": "Mobile Sites - as published by ACCC"
+    },
+    "subLayers": [],
+    "minScale": 0,
+    "maxScale": 0,
+    "referenceScale": 0.0,
+    "drawingInfo": {
+      "renderer": {
+        "type": "simple",
+        "symbol": {
+          "type": "esriSMS",
+          "style": "esriSMSCircle",
+          "color": [
+            0,
+            0,
+            0,
+            255
+          ],
+          "size": 4,
+          "angle": 0,
+          "xoffset": 0,
+          "yoffset": 0,
+          "outline": {
+            "color": [
+              0,
+              0,
+              0,
+              255
+            ],
+            "width": 0.7
+          }
+        }
+      },
+      "scaleSymbols": true,
+      "transparency": 0,
+      "labelingInfo": null
+    },
+    "defaultVisibility": false,
+    "extent": {
+      "xmin": 113.54388800000004,
+      "ymin": -43.428612999999984,
+      "xmax": 153.63269300000002,
+      "ymax": -10.578763999999978,
+      "spatialReference": {
+        "wkid": 4326,
+        "latestWkid": 4326,
+        "xyTolerance": 8.983152841195215E-09,
+        "zTolerance": 0.001,
+        "mTolerance": 0.001,
+        "falseX": -400,
+        "falseY": -400,
+        "xyUnits": 999999999.9999999,
+        "falseZ": -100000,
+        "zUnits": 10000,
+        "falseM": -100000,
+        "mUnits": 10000
+      }
+    },
+    "hasAttachments": false,
+    "htmlPopupType": "esriServerHTMLPopupTypeAsHTMLText",
+    "displayField": "MNO",
+    "typeIdField": null,
+    "subtypeFieldName": null,
+    "subtypeField": null,
+    "defaultSubtypeCode": null,
+    "fields": [
+      {
+        "name": "OBJECTID",
+        "type": "esriFieldTypeOID",
+        "alias": "OBJECTID",
+        "domain": null
+      },
+      {
+        "name": "Year",
+        "type": "esriFieldTypeInteger",
+        "alias": "Year",
+        "domain": null
+      },
+      {
+        "name": "MNO",
+        "type": "esriFieldTypeString",
+        "alias": "MNO",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "RFNSA_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "RFNSA ID",
+        "domain": null
+      },
+      {
+        "name": "Latitude",
+        "type": "esriFieldTypeDouble",
+        "alias": "Latitude",
+        "domain": null
+      },
+      {
+        "name": "Longitude",
+        "type": "esriFieldTypeDouble",
+        "alias": "Longitude",
+        "domain": null
+      },
+      {
+        "name": "NBIoT700",
+        "type": "esriFieldTypeString",
+        "alias": "NBIoT700",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "UMTS900",
+        "type": "esriFieldTypeString",
+        "alias": "UMTS900",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "UMTS2100",
+        "type": "esriFieldTypeString",
+        "alias": "UMTS2100",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "LTE700",
+        "type": "esriFieldTypeString",
+        "alias": "LTE700",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "LTE900",
+        "type": "esriFieldTypeString",
+        "alias": "LTE900",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "LTE1800",
+        "type": "esriFieldTypeString",
+        "alias": "LTE1800",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "LTE2100",
+        "type": "esriFieldTypeString",
+        "alias": "LTE2100",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "LTE2300",
+        "type": "esriFieldTypeString",
+        "alias": "LTE2300",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "LTE2600",
+        "type": "esriFieldTypeString",
+        "alias": "LTE2600",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "NR700",
+        "type": "esriFieldTypeString",
+        "alias": "NR700",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "NR900",
+        "type": "esriFieldTypeString",
+        "alias": "NR900",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "NR2100",
+        "type": "esriFieldTypeString",
+        "alias": "NR2100",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "NR2300",
+        "type": "esriFieldTypeString",
+        "alias": "NR2300",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "NR3500",
+        "type": "esriFieldTypeString",
+        "alias": "NR3500",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "NR26000",
+        "type": "esriFieldTypeString",
+        "alias": "NR26000",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "Co_funded",
+        "type": "esriFieldTypeString",
+        "alias": "Co_funded",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "Co_contribution_program",
+        "type": "esriFieldTypeString",
+        "alias": "Co_contribution_program",
+        "length": 1073741822,
+        "domain": null
+      },
+      {
+        "name": "Round",
+        "type": "esriFieldTypeInteger",
+        "alias": "Round",
+        "domain": null
+      },
+      {
+        "name": "Shape",
+        "type": "esriFieldTypeGeometry",
+        "alias": "Shape",
+        "domain": null
+      }
+    ],
+    "geometryField": {
+      "name": "Shape",
+      "type": "esriFieldTypeGeometry",
+      "alias": "Shape"
+    },
+    "indexes": [
+      {
+        "name": "FDO_OBJECTID",
+        "fields": "OBJECTID",
+        "isAscending": true,
+        "isUnique": true,
+        "description": ""
+      },
+      {
+        "name": "FDO_Shape",
+        "fields": "Shape",
+        "isAscending": true,
+        "isUnique": false,
+        "description": ""
+      }
+    ],
+    "subtypes": [],
+    "relationships": [],
+    "canModifyLayer": true,
+    "canScaleSymbols": false,
+    "hasLabels": false,
+    "capabilities": "Map,Query,Data",
+    "maxRecordCount": 2000,
+    "maxSelectionCount": 2000,
+    "supportsStatistics": true,
+    "supportsExceedsLimitStatistics": true,
+    "supportsAdvancedQueries": true,
+    "supportedQueryFormats": "JSON, geoJSON, PBF",
+    "isDataVersioned": false,
+    "ownershipBasedAccessControlForFeatures": {
+      "allowOthersToQuery": true
+    },
+    "useStandardizedQueries": true,
+    "supportedSpatialRelationships": [
+      "esriSpatialRelIntersects",
+      "esriSpatialRelContains",
+      "esriSpatialRelCrosses",
+      "esriSpatialRelEnvelopeIntersects",
+      "esriSpatialRelIndexIntersects",
+      "esriSpatialRelOverlaps",
+      "esriSpatialRelTouches",
+      "esriSpatialRelWithin",
+      "esriSpatialRelRelation"
+    ],
+    "advancedQueryCapabilities": {
+      "useStandardizedQueries": true,
+      "supportsStatistics": true,
+      "supportsPercentileStatistics": true,
+      "supportsHavingClause": true,
+      "supportsOrderBy": true,
+      "supportsDistinct": true,
+      "supportsCountDistinct": true,
+      "supportsAdvancedQueryRelated": true,
+      "supportsQueryRelatedPagination": true,
+      "supportsPagination": true,
+      "supportsLod": false,
+      "supportsQueryWithLodSR": false,
+      "supportsTrueCurve": true,
+      "supportsQueryWithDatumTransformation": true,
+      "supportsReturningQueryExtent": true,
+      "supportsQueryWithDistance": true,
+      "supportsSqlExpression": true,
+      "supportsTimeRelation": true,
+      "supportsSqlFormat": false,
+      "supportsQueryAnalytic": false,
+      "supportsCurrentUserQueries": true
+    },
+    "supportsDatumTransformation": true,
+    "dateFieldsTimeReference": null,
+    "preferredTimeReference": null,
+    "datesInUnknownTimezone": false,
+    "hasMetadata": true,
+    "isDataArchived": false,
+    "archivingInfo": {
+      "supportsQueryWithHistoricMoment": false,
+      "startArchivingMoment": -1
+    },
+    "supportsCoordinatesQuantization": true,
+    "supportsDynamicLegends": true,
+    "serviceItemId": "2e4ec80030244f4eb2da95ddb0106186"
+  }
+}

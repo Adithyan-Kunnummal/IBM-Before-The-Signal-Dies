@@ -1,5 +1,6 @@
 # Ignore large uncompressed geospatial files
 *.gpkg
+data/raw/accc/optus_4g_outdoor_coverage_wa_envelope_2025-01-31.geojson
 
 # OS / Editor files
 .DS_Store
