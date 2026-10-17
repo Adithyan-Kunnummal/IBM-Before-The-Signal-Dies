@@ -1,0 +1,70 @@
+{
+  "created_utc": "2026-10-17T03:59:36.021373+00:00",
+  "rows": 1699,
+  "csv_sha256": "3028820b2589eaec72c69bb8ad8944c12973c7eb08f3a6881c194ebc70553e71",
+  "parameters": {
+    "as_of_exclusive": "2026-10-17",
+    "history_start_inclusive": "2021-10-17",
+    "history_years": 5,
+    "cyclone_radius_km": 100
+  },
+  "sources": {
+    "localities": {
+      "file": "Geopackage_2021_G01_WA_GDA2020.zip",
+      "bytes": 78846635,
+      "url": "https://www.abs.gov.au/census/find-census-data/geopackages"
+    },
+    "bushfire_zones": {
+      "file": "Bushfire_Prone_Areas_OBRM_026_WA_GDA2020_Public_View_GeoJSON.zip",
+      "bytes": 306777313,
+      "url": "https://catalogue.data.wa.gov.au/dataset/bushfire-prone-areas-obrm-026"
+    },
+    "fire_history": {
+      "file": "DBCA_Fire_History_DBCA_060_WA_GDA2020_Public_Geopackage.zip",
+      "bytes": 1367858228,
+      "url": "https://catalogue.data.wa.gov.au/dataset/dbca-fire-history"
+    },
+    "flood_zones": {
+      "file": "FPM_Floodplain_Area_DWER_020_WA_GDA2020_Public_GeoJSON.zip",
+      "bytes": 71215102,
+      "url": "https://catalogue.data.wa.gov.au/dataset/fpm-floodplain-area"
+    },
+    "cyclones": {
+      "file": "IDCKMSTM0S.csv",
+      "bytes": 7964085,
+      "url": "https://www.bom.gov.au/cyclone/tropical-cyclone-knowledge-centre/databases/"
+    }
+  },
+  "quality_counts": {
+    "empty_geometries": 2,
+    "bushfire_source_features": 148,
+    "repaired_geometries": 2,
+    "flood_source_features": 281,
+    "fire_source_type_counts": {
+      "999": 45682,
+      "PB": 36119,
+      "WF": 67820
+    },
+    "fire_source_latest_wildfire_date": "2026-06-23T00:00:00.000Z",
+    "fire_polygons_in_history_window": 3709,
+    "fire_polygons_with_unresolved_event_identity": 8,
+    "cyclone_source_track_points": 31706,
+    "cyclone_track_points_in_history_window": 1914
+  },
+  "measurement_crs": "EPSG:9473 (GDA2020 Australian Albers)",
+  "versions": {
+    "shapely": "2.2.0",
+    "ijson": "3.6.0"
+  },
+  "limitations": [
+    "Hazard percentages are area fractions, not fractions of residents exposed or outage probabilities.",
+    "Hazard zones are the supplied current snapshots, not reconstructed historical maps. Do not use them as point-in-time training features without version checks.",
+    "Flood extents have multiple AEP/scenario classes. The any-extent and 1% AEP unions are separate. No overlap means unknown mapping coverage, not flood-safe.",
+    "Fire counts include only WF / Actual Burnt records, deduplicated by district, fire season and fire number; valid master keys are a fallback. Unresolved identities are excluded and counted.",
+    "DBCA fire coverage is incomplete. Zero means no matched recorded event, not proof of no fire; record dates do not establish when the data was published.",
+    "Cyclone proximity is geodesic distance from an interior locality representative point to recorded TYPE=T track samples, including weakening/developing phases. Tracks are not interpolated between observations.",
+    "Cyclone wind/gust values are metres per second near the cyclone centre, not local station observations or future weather.",
+    "Rainfall, local weather-station gusts, mobile infrastructure and outage labels are not included in this disaster-only extract.",
+    "The as-of cutoff excludes history dates on/after that date; source snapshots may include later revisions. This output is a feature snapshot, not a labelled training dataset."
+  ]
+}

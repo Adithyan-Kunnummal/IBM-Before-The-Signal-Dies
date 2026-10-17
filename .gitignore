@@ -2,6 +2,13 @@
 *.gpkg
 data/raw/accc/optus_4g_outdoor_coverage_wa_envelope_2025-01-31.geojson
 
+# Original downloads, extraction cache and local Python environment
+/*.zip
+/data/raw/
+/.cache/
+/.venv/
+__pycache__/
+
 # OS / Editor files
 .DS_Store
 Thumbs.db
