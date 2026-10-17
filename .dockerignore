@@ -1,0 +1,13 @@
+# Send only what the app needs to the Docker build.
+*
+!Dockerfile
+!app/
+app/__pycache__/
+!models/xgb_pu_outage.json
+!data/processed/wa_susceptibility_index.csv
+!data/processed/wa_susceptibility_index.metadata.json
+!data/processed/wa_outage_pu_scores.csv
+!data/processed/wa_outage_pu_model.metadata.json
+!data/processed/wa_outage_modelling.csv
+!data/processed/outage_data_quality.json
+!data/raw/accc/optus_sites_wa_envelope_2025-01-31.geojson

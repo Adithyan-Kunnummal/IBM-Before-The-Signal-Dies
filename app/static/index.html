@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Before the Signal Dies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="static/vendor/leaflet.css">
+<link rel="stylesheet" href="static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div>
+      <h1>Before the Signal Dies</h1>
+      <p class="tagline">A disaster warning only helps if people can still receive it.</p>
+    </div>
+  </div>
+  <div class="status" id="status">
+    <span class="chip chip-muted" id="status-server">Connecting…</span>
+    <span class="chip chip-muted" id="status-accel" hidden></span>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel" id="panel">
+    <section class="block results" aria-live="polite">
+      <div class="block-head">
+        <h2>Impact</h2>
+        <span class="eyebrow" id="compute-note"></span>
+      </div>
+      <div class="tiles">
+        <div class="tile"><span class="tile-num" id="t-sites">–</span><span class="tile-label">Optus sites down</span></div>
+        <div class="tile tile-alert"><span class="tile-num" id="t-lost">–</span><span class="tile-label">localities lose coverage</span></div>
+        <div class="tile tile-alert"><span class="tile-num" id="t-res">–</span><span class="tile-label">residents affected</span></div>
+        <div class="tile tile-good"><span class="tile-num" id="t-restored">–</span><span class="tile-label">residents restored by units</span></div>
+      </div>
+      <ol class="unit-list" id="unit-list"></ol>
+      <h3 class="sub">Communities losing coverage</h3>
+      <ul class="lost-list" id="lost-list"></ul>
+      <h3 class="sub" id="band-head">Susceptibility raised by the disaster</h3>
+      <ul class="lost-list" id="band-list"></ul>
+      <p class="hint" id="baseline-note"></p>
+    </section>
+
+    <section class="block detail" id="detail" hidden>
+      <div class="block-head">
+        <h2 id="d-name">Locality</h2>
+        <button type="button" class="btn-close" id="d-close" aria-label="Close locality details">×</button>
+      </div>
+      <div class="chips" id="d-chips"></div>
+      <dl class="facts" id="d-facts"></dl>
+      <div class="explain">
+        <div class="explain-head"><span class="eyebrow">Why this band</span></div>
+        <p id="d-text"></p>
+      </div>
+      <div class="explain" id="d-live" hidden>
+        <div class="explain-head"><span class="eyebrow">Reported-outage model, scored live</span></div>
+        <div class="live-scores" id="d-live-scores"></div>
+        <ul class="contrib" id="d-live-contrib"></ul>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="block-head">
+        <h2>Map colouring</h2>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="Map colouring">
+        <button type="button" id="mode-index" class="seg is-on" role="radio" aria-checked="true">Susceptibility index</button>
+        <button type="button" id="mode-model" class="seg" role="radio" aria-checked="false">Reported-outage model</button>
+      </div>
+      <p class="hint" id="mode-hint">Hazard exposure and sparse Optus infrastructure, weighted 50/50. Relative bands, not probabilities.</p>
+      <div class="legend">
+        <span><i class="dot band-High"></i>High</span>
+        <span><i class="dot band-Medium"></i>Medium</span>
+        <span><i class="dot band-Low"></i>Low</span>
+        <span><i class="dot site"></i>Optus site</span>
+        <span><i class="ring lost"></i>Loses coverage</span>
+        <span><i class="ring restored"></i>Restored by unit</span>
+      </div>
+      <label class="check"><input type="checkbox" id="show-sites" checked> Show Optus sites</label>
+    </section>
+
+    <section class="block">
+      <div class="block-head">
+        <h2>Disaster scenario</h2>
+        <span class="eyebrow">Illustrative</span>
+      </div>
+      <div class="presets" id="presets"></div>
+      <button type="button" id="place-area" class="btn-quiet">Click the map to move the area</button>
+      <div class="field">
+        <label for="radius">Disaster area radius <output id="radius-out">20 km</output></label>
+        <input type="range" id="radius" min="5" max="300" step="5" value="20">
+      </div>
+      <div class="field">
+        <label for="share">Sites in the area that fail <output id="share-out">100%</output></label>
+        <input type="range" id="share" min="10" max="100" step="10" value="100">
+      </div>
+      <div class="field">
+        <label for="coverage">Assumed coverage per site <output id="coverage-out">10 km</output></label>
+        <input type="range" id="coverage" min="3" max="30" step="1" value="10">
+      </div>
+      <p class="hint">Click an Optus site on the map to switch it off or back on. <span id="manual-count"></span></p>
+    </section>
+
+    <section class="block">
+      <div class="block-head">
+        <h2>Temporary communications units</h2>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="units">Units to deploy <output id="units-out">2</output></label>
+          <input type="range" id="units" min="0" max="5" step="1" value="2">
+        </div>
+        <div class="field">
+          <label for="unit-radius">Unit range <output id="unit-radius-out">15 km</output></label>
+          <input type="range" id="unit-radius" min="3" max="40" step="1" value="15">
+        </div>
+      </div>
+      <p class="hint">Each unit goes where it restores coverage to the most residents.</p>
+    </section>
+
+    <section class="block platform">
+      <div class="block-head">
+        <h2>Running on LinuxONE</h2>
+        <span class="eyebrow" id="platform-machine"></span>
+      </div>
+      <dl class="facts" id="platform-facts"></dl>
+      <button type="button" id="run-bench" class="btn-quiet">Run inference benchmark</button>
+      <div class="bench" id="bench" hidden>
+        <table>
+          <caption>Score all 1,699 localities in one batch (median of 30 runs)</caption>
+          <thead><tr><th scope="col">Library</th><th scope="col">Runs on</th><th scope="col">Batch</th><th scope="col">Per locality</th><th scope="col">vs XGBoost</th></tr></thead>
+          <tbody id="bench-rows"></tbody>
+        </table>
+        <p class="hint">All engines score the same trained model and agree to within 0.0001. On LinuxONE, Snap ML on the CPU cores scores fastest. Snap ML can also run the model on the Telum on-chip AI accelerator, which takes the work off the general-purpose cores. For a model this small (150 trees of depth 2), the accelerator is slower than the cores at every batch size we tested, up to 510,000 rows.</p>
+      </div>
+      <p class="hint" id="platform-note"></p>
+    </section>
+
+    <section class="block about">
+      <details>
+        <summary>How this works</summary>
+        <p><strong>Susceptibility index.</strong> Seven measured features are scaled 0–1, averaged into hazard exposure (bushfire-prone area, mapped floodplain, recorded bushfires, cyclone tracks) and infrastructure sparsity (distance to the nearest Optus site, sites within 5 and 10 km), converted to WA percentiles and weighted 50/50. Top 20% High, next 30% Medium.</p>
+        <p><strong>Reported-outage model.</strong> XGBoost trained on the Optus significant-outage register (114 reported localities, 19 independent incidents) and tested on held-out incidents. <span id="model-test"></span> It learns where significant outages get reported, which is mostly near Optus sites, so it complements the index rather than replacing it.</p>
+        <p><strong>Simulation.</strong> The ACCC data has no per-site footprints, so a locality counts as covered when a working Optus site sits within the assumed coverage radius of its representative point. Scenarios are illustrative, not reconstructions of real events.</p>
+        <p><strong>Live re-banding.</strong> When sites fail, each nearby locality's distance to the nearest working site and its working-site counts are recalculated with the index's own scaling. Hazard exposure is unchanged, so bands can only rise.</p>
+        <p><strong>Data.</strong> ABS 2021 Census, ACCC Optus sites (January 2025), DBCA fire history, DWER floodplain mapping, WA bushfire-prone areas, BOM cyclone tracks, Optus outage register.</p>
+      </details>
+    </section>
+  </aside>
+
+  <div class="map-wrap">
+    <div id="map" aria-label="Map of Western Australian localities and Optus sites"></div>
+    <div class="map-note" id="map-note" hidden>Click the map to place the disaster area.</div>
+  </div>
+</main>
+
+<script src="static/vendor/leaflet.js"></script>
+<script src="static/app.js"></script>
+</body>
+</html>

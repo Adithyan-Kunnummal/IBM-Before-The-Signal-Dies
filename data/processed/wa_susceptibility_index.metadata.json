@@ -1,0 +1,139 @@
+{
+  "created_utc": "2026-10-17T05:06:25+00:00",
+  "rows": 1699,
+  "csv_sha256": "4829e33cb476c34d35758e4a6af534ce80b6582940f867a4a50f3999db8b08b6",
+  "method": "Untrained transparent index: mean of scaled features per part, parts converted to WA percentiles, weighted sum, rank-based bands.",
+  "weights": {
+    "hazard": 0.5,
+    "infrastructure_sparsity": 0.5
+  },
+  "band_cutoffs": {
+    "High": "top 20%",
+    "Medium": "next 30%",
+    "Low": "remaining 50%",
+    "tie_break": "row order by sal_code_2021"
+  },
+  "features": {
+    "hazard": [
+      {
+        "column": "bushfire_prone_area_pct_snapshot",
+        "method": "pct",
+        "label": "Bushfire-prone area"
+      },
+      {
+        "column": "flood_any_mapped_extent_pct_snapshot",
+        "method": "pct",
+        "label": "Mapped floodplain"
+      },
+      {
+        "column": "fire_per_year",
+        "method": "log_high",
+        "label": "Recorded bushfires"
+      },
+      {
+        "column": "cyclone_tracks",
+        "method": "log_high",
+        "label": "Nearby cyclone tracks"
+      }
+    ],
+    "infrastructure": [
+      {
+        "column": "nearest_optus_site_km",
+        "method": "log_high",
+        "label": "Distance to nearest Optus site"
+      },
+      {
+        "column": "optus_sites_within_5km",
+        "method": "log_low",
+        "label": "Optus sites within 5 km"
+      },
+      {
+        "column": "optus_sites_within_10km",
+        "method": "log_low",
+        "label": "Optus sites within 10 km"
+      }
+    ]
+  },
+  "history_column_mapping": {
+    "dbca_recorded_bushfire_events_per_year": "fire_per_year",
+    "nearby_cyclone_track_count": "cyclone_tracks"
+  },
+  "log_scaling_reference_max": {
+    "fire_per_year": 21.4,
+    "cyclone_tracks": 6.0,
+    "nearest_optus_site_km": 458.350749,
+    "optus_sites_within_5km": 123.0,
+    "optus_sites_within_10km": 242.0
+  },
+  "inputs": {
+    "wa_locality_features.csv": "b131669c0e6e4d659f53464cc7261edcc0a0d8cd9b14ecbd97e40ab24a596b42",
+    "wa_outage_modelling.csv": "e35cf245ae48786a8e5bc7825ed45025ba3893f7e1b6771e30fc322eccf55341",
+    "wa_outages_clean.csv": "b487e913610ba8da7c6d3ae864d6af7f1b0d6285bde06bdbbef5410e9455edc2"
+  },
+  "sensitivity": {
+    "band_hazard_weight_40": {
+      "hazard_weight": 0.4,
+      "localities_changing_band": 186,
+      "share_changing_band": 0.1095
+    },
+    "band_hazard_weight_60": {
+      "hazard_weight": 0.6,
+      "localities_changing_band": 168,
+      "share_changing_band": 0.0989
+    },
+    "band_stable_localities": 1347
+  },
+  "register_check": {
+    "note": "Reported positives vs unreported (unknown) localities, using pre-outage-window fire/cyclone history. Not an accuracy measure: absence of a report is not confirmed normal service.",
+    "storm_events": [
+      "IM2220008",
+      "IM2220352",
+      "IM2220399",
+      "IM2220415",
+      "IM2220454",
+      "IM2220493",
+      "IM2220504",
+      "IM2220518",
+      "IM2220564",
+      "IM2220729",
+      "IM2220824"
+    ],
+    "results": {
+      "overall": {
+        "reported_localities": 114,
+        "rank_agreement_auc": 0.418
+      },
+      "least populated": {
+        "reported_localities": 11,
+        "rank_agreement_auc": 0.298
+      },
+      "middle": {
+        "reported_localities": 32,
+        "rank_agreement_auc": 0.421
+      },
+      "most populated": {
+        "reported_localities": 71,
+        "rank_agreement_auc": 0.627
+      },
+      "storm_only_reports": {
+        "reported_localities": 80,
+        "rank_agreement_auc": 0.356
+      },
+      "other_reports": {
+        "reported_localities": 34,
+        "rank_agreement_auc": 0.563
+      }
+    }
+  },
+  "limitations": [
+    "The band is a relative ranking among WA localities, not an outage probability or forecast.",
+    "Infrastructure is the January 2025 ACCC Optus site snapshot; site identifiers are not necessarily unique towers.",
+    "Distances are measured from one representative point inside the locality, not from every address.",
+    "Flood values of 0 can mean the area is unmapped, not flood-free.",
+    "Recorded bushfire history is incomplete statewide; 0 does not prove there were no fires.",
+    "Population is excluded from the score; use it separately for impact and prioritisation.",
+    "Bushfire-prone and floodplain values are current designation snapshots.",
+    "No rainfall, local wind or live disaster conditions are included.",
+    "Weights were set by the team, not fitted; the register check was not used to tune them."
+  ]
+}

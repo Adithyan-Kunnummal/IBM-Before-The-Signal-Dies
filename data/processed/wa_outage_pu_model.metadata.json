@@ -1,0 +1,271 @@
+{
+  "created_utc": "2026-10-17T05:49:10+00:00",
+  "experiment": "Positive-unlabelled XGBoost on reported WA mobile outages; not a calibrated outage probability.",
+  "target": {
+    "column": "reported_outage_label",
+    "positive": 114,
+    "unlabelled": 1585,
+    "confirmed_negative": 0
+  },
+  "features": [
+    "population_2021",
+    "population_density_2021_per_km2",
+    "locality_area_km2",
+    "optus_site_count_2025",
+    "optus_site_density_2025_per_km2",
+    "nearest_optus_site_km",
+    "optus_sites_within_5km",
+    "optus_sites_within_10km",
+    "recorded_bushfire_count_before_window",
+    "recorded_bushfires_per_year_before_window",
+    "nearby_cyclone_track_count_before_window"
+  ],
+  "xgboost_params": {
+    "objective": "binary:logistic",
+    "eval_metric": "logloss",
+    "eta": 0.05,
+    "max_depth": 2,
+    "min_child_weight": 10,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "lambda": 5.0,
+    "tree_method": "hist",
+    "nthread": 4,
+    "gamma": 1.0,
+    "num_boost_round": 150,
+    "seed": 0,
+    "monotone_constraints": {
+      "population_2021": 1,
+      "nearest_optus_site_km": -1,
+      "recorded_bushfire_count_before_window": 1,
+      "recorded_bushfires_per_year_before_window": 1,
+      "nearby_cyclone_track_count_before_window": 1
+    },
+    "scale_pos_weight": 13.9035
+  },
+  "xgboost_params_original_for_comparison": {
+    "objective": "binary:logistic",
+    "eval_metric": "logloss",
+    "eta": 0.05,
+    "max_depth": 3,
+    "min_child_weight": 3,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "lambda": 1.0,
+    "tree_method": "hist",
+    "nthread": 4,
+    "num_boost_round": 300
+  },
+  "regularisation_reason": "Original model memorised exact population values (repeated splits at 112-117 residents). Final model uses shallower trees, larger min_child_weight, stronger L2, gamma, fewer rounds and monotone constraints.",
+  "evaluation_design": {
+    "incident_groups": 19,
+    "storm_events": [
+      "IM2220008",
+      "IM2220352",
+      "IM2220399",
+      "IM2220415",
+      "IM2220454",
+      "IM2220493",
+      "IM2220504",
+      "IM2220518",
+      "IM2220564",
+      "IM2220729",
+      "IM2220824"
+    ],
+    "tests": [
+      "Storm hold-out",
+      "Leave-one-incident-out over the remaining incident groups"
+    ],
+    "comparison_set": "20% of unlabelled localities by 1.0 degree grid cell, never trained on",
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "metric_note": "Percentile of held-out reported localities among the comparison set (AUC-like) and share in its top 20%. Not accuracy: the comparison set may contain unreported outages."
+  },
+  "evaluation_results": {
+    "Storm hold-out (90 localities)": {
+      "Population only": {
+        "mean_percentile": 0.671,
+        "mean_percentile_min": 0.494,
+        "mean_percentile_max": 0.823,
+        "captured_top_20pct": 0.393,
+        "lift_vs_random": 1.967
+      },
+      "Transparent index": {
+        "mean_percentile": 0.397,
+        "mean_percentile_min": 0.255,
+        "mean_percentile_max": 0.567,
+        "captured_top_20pct": 0.029,
+        "lift_vs_random": 0.144
+      },
+      "Logistic regression": {
+        "mean_percentile": 0.743,
+        "mean_percentile_min": 0.669,
+        "mean_percentile_max": 0.797,
+        "captured_top_20pct": 0.664,
+        "lift_vs_random": 3.322
+      },
+      "XGBoost (original)": {
+        "mean_percentile": 0.725,
+        "mean_percentile_min": 0.672,
+        "mean_percentile_max": 0.772,
+        "captured_top_20pct": 0.58,
+        "lift_vs_random": 2.9
+      },
+      "XGBoost": {
+        "mean_percentile": 0.765,
+        "mean_percentile_min": 0.716,
+        "mean_percentile_max": 0.822,
+        "captured_top_20pct": 0.616,
+        "lift_vs_random": 3.078
+      }
+    },
+    "Leave-one-incident-out (24 localities, 18 incidents)": {
+      "Population only": {
+        "mean_percentile": 0.625,
+        "mean_percentile_min": 0.425,
+        "mean_percentile_max": 0.8,
+        "captured_top_20pct": 0.3,
+        "lift_vs_random": 1.5
+      },
+      "Transparent index": {
+        "mean_percentile": 0.57,
+        "mean_percentile_min": 0.424,
+        "mean_percentile_max": 0.73,
+        "captured_top_20pct": 0.167,
+        "lift_vs_random": 0.833
+      },
+      "Logistic regression": {
+        "mean_percentile": 0.801,
+        "mean_percentile_min": 0.599,
+        "mean_percentile_max": 0.919,
+        "captured_top_20pct": 0.667,
+        "lift_vs_random": 3.333
+      },
+      "XGBoost (original)": {
+        "mean_percentile": 0.742,
+        "mean_percentile_min": 0.469,
+        "mean_percentile_max": 0.885,
+        "captured_top_20pct": 0.542,
+        "lift_vs_random": 2.708
+      },
+      "XGBoost": {
+        "mean_percentile": 0.77,
+        "mean_percentile_min": 0.531,
+        "mean_percentile_max": 0.902,
+        "captured_top_20pct": 0.608,
+        "lift_vs_random": 3.042
+      }
+    },
+    "All 114 reported localities": {
+      "Population only": {
+        "mean_percentile": 0.661,
+        "mean_percentile_min": 0.479,
+        "mean_percentile_max": 0.818,
+        "captured_top_20pct": 0.374,
+        "lift_vs_random": 1.868
+      },
+      "Transparent index": {
+        "mean_percentile": 0.433,
+        "mean_percentile_min": 0.291,
+        "mean_percentile_max": 0.602,
+        "captured_top_20pct": 0.058,
+        "lift_vs_random": 0.289
+      },
+      "Logistic regression": {
+        "mean_percentile": 0.755,
+        "mean_percentile_min": 0.712,
+        "mean_percentile_max": 0.772,
+        "captured_top_20pct": 0.665,
+        "lift_vs_random": 3.325
+      },
+      "XGBoost (original)": {
+        "mean_percentile": 0.729,
+        "mean_percentile_min": 0.7,
+        "mean_percentile_max": 0.769,
+        "captured_top_20pct": 0.572,
+        "lift_vs_random": 2.86
+      },
+      "XGBoost": {
+        "mean_percentile": 0.766,
+        "mean_percentile_min": 0.743,
+        "mean_percentile_max": 0.782,
+        "captured_top_20pct": 0.614,
+        "lift_vs_random": 3.07
+      }
+    }
+  },
+  "feature_importance": {
+    "optus_site_density_2025_per_km2": {
+      "mean_abs_contribution": 1.2095999717712402,
+      "direction_spearman": 0.7388
+    },
+    "nearest_optus_site_km": {
+      "mean_abs_contribution": 0.6545000076293945,
+      "direction_spearman": -0.9682
+    },
+    "population_2021": {
+      "mean_abs_contribution": 0.38830000162124634,
+      "direction_spearman": 0.9081
+    },
+    "optus_site_count_2025": {
+      "mean_abs_contribution": 0.32839998602867126,
+      "direction_spearman": 0.8145
+    },
+    "locality_area_km2": {
+      "mean_abs_contribution": 0.2282000035047531,
+      "direction_spearman": 0.483
+    },
+    "nearby_cyclone_track_count_before_window": {
+      "mean_abs_contribution": 0.1445000022649765,
+      "direction_spearman": 0.7028
+    },
+    "optus_sites_within_10km": {
+      "mean_abs_contribution": 0.1234000027179718,
+      "direction_spearman": 0.5467
+    },
+    "population_density_2021_per_km2": {
+      "mean_abs_contribution": 0.10679999738931656,
+      "direction_spearman": -0.2837
+    },
+    "optus_sites_within_5km": {
+      "mean_abs_contribution": 0.06360000371932983,
+      "direction_spearman": -0.5197
+    },
+    "recorded_bushfire_count_before_window": {
+      "mean_abs_contribution": 0.05900000035762787,
+      "direction_spearman": 0.7529
+    },
+    "recorded_bushfires_per_year_before_window": {
+      "mean_abs_contribution": 0.016499999910593033,
+      "direction_spearman": 0.7218
+    }
+  },
+  "versions": {
+    "python": "3.12.15",
+    "machine": "s390x",
+    "numpy": "2.0.2",
+    "pandas": "3.0.6",
+    "xgboost": "3.4.1"
+  },
+  "inputs": {
+    "wa_outage_modelling.csv": "e35cf245ae48786a8e5bc7825ed45025ba3893f7e1b6771e30fc322eccf55341",
+    "wa_outages_clean.csv": "b487e913610ba8da7c6d3ae864d6af7f1b0d6285bde06bdbbef5410e9455edc2",
+    "wa_locality_features.csv": "b131669c0e6e4d659f53464cc7261edcc0a0d8cd9b14ecbd97e40ab24a596b42",
+    "outage_data_quality.json": "627124971c86d9e5bcb2ed896eaff0f0d6cdbdcd4ec86ac210d5b738c4509c28"
+  },
+  "outputs": {
+    "xgb_pu_outage.json": "b98f2e1f7e32ba7fcf2b53dd4e1ac3576470e413effd327b78b61effed4157ae",
+    "wa_outage_pu_scores.csv": "53ff39af9dac594c915650c0f5d52cc62c1483953543ba35480f42ab46ec111f"
+  },
+  "limitations": [
+    "Positive-unlabelled data under a probably violated SCAR assumption: reporting favours populated, well-served localities.",
+    "One storm accounts for most reported localities; there are few independent incidents.",
+    "Final-model scores for reported localities are in-sample.",
+    "Bands are relative rankings of reported-outage pattern, not susceptibility or probability."
+  ]
+}
