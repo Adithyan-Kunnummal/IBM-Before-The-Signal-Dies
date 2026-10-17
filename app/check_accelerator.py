@@ -15,6 +15,39 @@ import model_service as ms  # noqa: E402
 from engine import load_localities  # noqa: E402
 
 
+def batch_sizes(service, BoostingMachineClassifier, np):
+    """Time each engine on growing batches: the accelerator pays a fixed cost per call,
+    so it is judged on large batches (e.g. state-wide re-scoring of many scenarios)."""
+    layout_path = next(p for name, p in ms.snapml_model_files() if name != "original")
+    engines = {}
+    for tree_format in ("zdnn_tensors", "compress_trees"):
+        model = BoostingMachineClassifier()
+        try:
+            model.import_model(str(layout_path), input_type="xgb_json", tree_format=tree_format)
+            model.predict_proba(service.X[:2])
+            engines[f"snapml {tree_format}"] = lambda X, m=model: m.predict_proba(X)[:, 1]
+        except Exception:
+            pass
+    if "xgboost" in service.backends:
+        engines["xgboost"] = service.backends["xgboost"]
+    if not engines:
+        return
+    print("\nBatch size scaling (median ms per batch, localities repeated to fill the batch):")
+    print("  rows       " + "".join(f"{name:>24s}" for name in engines))
+    for copies in (1, 10, 100, 300):
+        X = np.ascontiguousarray(np.tile(service.X, (copies, 1)))
+        cells = []
+        for predict in engines.values():
+            predict(X)
+            times = []
+            for _ in range(5 if copies < 100 else 3):
+                started = time.perf_counter()
+                predict(X)
+                times.append((time.perf_counter() - started) * 1000)
+            cells.append(f"{sorted(times)[len(times) // 2]:24.1f}")
+        print(f"  {len(X):<11,d}" + "".join(cells))
+
+
 def main():
     import warnings
     warnings.simplefilter("once")  # Snap ML repeats its NNPA warning on every call
@@ -42,16 +75,15 @@ def main():
 
     try:
         import numpy as np
-        import snapml
         from snapml import BoostingMachineClassifier
     except ImportError as exc:
         print(f"Snap ML not importable ({exc}); skipping the Snap ML checks.")
     else:
-        print(f"\nSnap ML {getattr(snapml, '__version__', '')}: model layout x tree format")
+        print(f"\nSnap ML {ms.library_version('snapml')}: model layout x tree format")
         reference = service.backends["xgboost"](service.X) if "xgboost" in service.backends else None
         stored = np.array(service.stored)
         for layout, path in ms.snapml_model_files():
-            for tree_format in ("zdnn_tensors", "compress_trees", "ensemble", "auto"):
+            for tree_format in ("zdnn_tensors", "compress_trees", "auto"):
                 label = f"{layout:17s} {tree_format:15s}"
                 model = BoostingMachineClassifier()
                 try:
@@ -65,6 +97,7 @@ def main():
                           f"max diff vs {'XGBoost' if reference is not None else 'stored scores'} {diff:.2e}")
                 except Exception as exc:
                     print(f"  {label} failed: {exc.__class__.__name__}: {exc}")
+        batch_sizes(service, BoostingMachineClassifier, np)
 
     if not service.backends:
         print("\nNo model backend loaded in the app's own loader.")

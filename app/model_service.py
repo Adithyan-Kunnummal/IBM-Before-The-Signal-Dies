@@ -62,6 +62,14 @@ def _write(path, model):
     return path
 
 
+def library_version(name):
+    try:
+        from importlib.metadata import version
+        return version(name)
+    except Exception:
+        return ""
+
+
 def cpu_info():
     info = {"machine": platform.machine(), "nnpa": False, "machine_type": ""}
     try:
@@ -142,7 +150,7 @@ class ModelService:
                     return m.predict_proba(X)[:, 1]
                 self.backends["snapml"] = predict
                 self.status["backends"]["snapml"] = {
-                    "library": f"snapml {getattr(snapml, '__version__', '')}".strip(),
+                    "library": f"snapml {library_version('snapml')}".strip(),
                     "model_layout": layout,
                     "tree_format": tree_format,
                     "accelerator": ("Telum AI accelerator (zDNN)" if tree_format == "zdnn_tensors" and self.cpu["nnpa"]

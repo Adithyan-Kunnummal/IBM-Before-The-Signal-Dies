@@ -1,5 +1,7 @@
 # Before the Signal Dies: prototype app container.
-# The python base image is multi-architecture, so this builds natively on LinuxONE (s390x).
+# Ubuntu 24.04 matches the LinuxONE host and packages IBM's zDNN library (libzdnn0), which
+# Snap ML needs to run inference on the Telum AI accelerator. NNPA is a CPU instruction,
+# so the container needs no device access or extra privileges to use it.
 #
 #   docker build -t signal-dies .
 #   docker run -d --name signal-dies -p 127.0.0.1:8050:8050 \
@@ -9,24 +11,32 @@
 # ---- build stage: compilers only live here ----
 # scikit-learn and SciPy (needed by Snap ML) have no s390x wheels, so they compile here.
 # Expect the first build to take 20-40 minutes; later builds reuse the cached layer.
-FROM python:3.12-slim AS build
+FROM ubuntu:24.04 AS build
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
- && apt-get install -y --no-install-recommends build-essential cmake gfortran pkg-config libopenblas-dev \
+ && apt-get install -y --no-install-recommends python3 python3-dev python3-venv \
+      build-essential cmake gfortran pkg-config libopenblas-dev \
  && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv /opt/venv
 COPY app/requirements.txt /tmp/requirements.txt
-RUN pip wheel --no-cache-dir --wheel-dir /wheels -r /tmp/requirements.txt
+RUN /opt/venv/bin/pip wheel --no-cache-dir --wheel-dir /wheels -r /tmp/requirements.txt
 
 # ---- runtime stage ----
-FROM python:3.12-slim
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-# Runtime libraries for packages compiled in the build stage (SciPy needs the Fortran runtime).
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH=/opt/venv/bin:$PATH
+# Runtime libraries for compiled packages (SciPy needs the Fortran runtime), plus zDNN on s390x.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libgomp1 libopenblas0 libgfortran5 \
+ && apt-get install -y --no-install-recommends python3 python3-venv libgomp1 libopenblas0 libgfortran5 \
+ && if [ "$(dpkg --print-architecture)" = "s390x" ]; then apt-get install -y --no-install-recommends libzdnn0; fi \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin appuser
 COPY --from=build /wheels /wheels
-RUN pip install --no-cache-dir --no-index --find-links /wheels /wheels/*.whl && rm -rf /wheels
+RUN python3 -m venv /opt/venv \
+ && /opt/venv/bin/pip install --no-cache-dir --no-index --find-links /wheels /wheels/*.whl \
+ && rm -rf /wheels
 
 WORKDIR /srv
 COPY --chown=root:root app/ app/
