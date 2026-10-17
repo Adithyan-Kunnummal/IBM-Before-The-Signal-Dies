@@ -88,7 +88,7 @@ class ModelService:
         except ImportError:
             self.status["errors"].append("snapml is not installed (pip install snapml on LinuxONE).")
             return
-        last_error = None
+        errors = []
         for tree_format in SNAPML_TREE_FORMATS:
             model = BoostingMachineClassifier()
             try:
@@ -100,7 +100,7 @@ class ModelService:
                 # One prediction proves the format works on this machine.
                 model.predict_proba(self.X[:2])
             except Exception as exc:  # Snap ML raises various errors per format
-                last_error = f"{tree_format}: {exc.__class__.__name__}: {exc}"
+                errors.append(f"{tree_format}: {exc.__class__.__name__}: {exc}")
                 continue
 
             def predict(X, m=model):
@@ -113,7 +113,7 @@ class ModelService:
                                 else "CPU"),
             }
             return
-        self.status["errors"].append(f"Snap ML could not load the model ({last_error}).")
+        self.status["errors"].append(f"Snap ML could not load the model ({'; '.join(errors)}).")
 
     def _verify(self):
         stored = self.np.array(self.stored, dtype=float)

@@ -16,43 +16,59 @@ from engine import load_localities  # noqa: E402
 
 
 def main():
+    import warnings
+    warnings.simplefilter("once")  # Snap ML repeats its NNPA warning on every call
+
     cpu = ms.cpu_info()
     print(f"CPU: {cpu['machine']}, machine type {cpu['machine_type'] or 'n/a'}, "
           f"nnpa (AI accelerator): {'yes' if cpu['nnpa'] else 'no'}")
+    for lib in ("libzdnn.so", "libzdnn.so.0"):
+        try:
+            import ctypes
+            ctypes.CDLL(lib)
+            print(f"zDNN library: {lib} found")
+            break
+        except OSError:
+            pass
+    else:
+        print("zDNN library: not found (Snap ML needs it to use the AI accelerator)")
 
     localities = load_localities()
     service = ms.ModelService(localities)
     for message in service.status["errors"]:
         print("Note:", message)
-    if not service.backends:
-        print("No model backend loaded.")
-        return 1
-
     for name, info in service.status["backends"].items():
         print(f"{name}: {info}")
 
     try:
         import numpy as np
+        import snapml
         from snapml import BoostingMachineClassifier
-    except ImportError:
-        print("Snap ML not installed; skipping the tree-format comparison.")
+    except ImportError as exc:
+        print(f"Snap ML not importable ({exc}); skipping the Snap ML checks.")
     else:
-        print("\nSnap ML tree formats:")
+        print(f"\nSnap ML {getattr(snapml, '__version__', '')}: input type x tree format")
         reference = service.backends["xgboost"](service.X) if "xgboost" in service.backends else None
-        for tree_format in ("zdnn_tensors", "compress_trees", "ensemble", "auto"):
-            model = BoostingMachineClassifier()
-            try:
-                model.import_model(str(ms.MODEL_PATH), input_type="xgb_json", tree_format=tree_format)
-                started = time.perf_counter()
-                for _ in range(20):
-                    preds = model.predict_proba(service.X)[:, 1]
-                ms_per_batch = (time.perf_counter() - started) * 1000 / 20
-                agree = (f", max diff vs XGBoost {float(np.max(np.abs(preds - reference))):.2e}"
-                         if reference is not None else "")
-                print(f"  {tree_format:15s} OK  {ms_per_batch:8.3f} ms per {len(service.X)} rows{agree}")
-            except Exception as exc:
-                print(f"  {tree_format:15s} failed: {exc.__class__.__name__}: {exc}")
+        stored = np.array(service.stored)
+        for input_type in ("xgb_json", "xgb"):
+            for tree_format in ("zdnn_tensors", "compress_trees", "ensemble", "auto"):
+                label = f"{input_type:9s} {tree_format:15s}"
+                model = BoostingMachineClassifier()
+                try:
+                    model.import_model(str(ms.MODEL_PATH), input_type=input_type, tree_format=tree_format)
+                    started = time.perf_counter()
+                    for _ in range(20):
+                        preds = model.predict_proba(service.X)[:, 1]
+                    ms_per_batch = (time.perf_counter() - started) * 1000 / 20
+                    diff = float(np.max(np.abs(preds - (reference if reference is not None else stored))))
+                    print(f"  {label} OK  {ms_per_batch:8.3f} ms per {len(service.X)} rows, "
+                          f"max diff vs {'XGBoost' if reference is not None else 'stored scores'} {diff:.2e}")
+                except Exception as exc:
+                    print(f"  {label} failed: {exc.__class__.__name__}: {exc}")
 
+    if not service.backends:
+        print("\nNo model backend loaded in the app's own loader.")
+        return 1
     bench = service.benchmark(repeats=30)
     print("\nBenchmark (median of 30 batches):")
     for name, r in bench["results"].items():
