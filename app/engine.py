@@ -6,6 +6,7 @@ Coverage assumption (the ACCC data has no per-site footprints): a locality is
 covered when at least one working Optus site lies within the chosen coverage
 radius of its representative point.
 """
+import bisect
 import csv
 import hashlib
 import json
@@ -73,6 +74,10 @@ def load_localities():
             "index_score": round(_float(row["susceptibility_score"]), 4),
             "hazard_percentile": round(_float(row["hazard_percentile"]), 3),
             "infrastructure_percentile": round(_float(row["infrastructure_percentile"]), 3),
+            # Unrounded values for the live post-disaster recalculation.
+            "_score": _float(row["susceptibility_score"]),
+            "_hazard_pct": _float(row["hazard_percentile"]),
+            "_infra_score": _float(row["infrastructure_score"]),
             "bushfire_prone_pct": round(_float(row["bushfire_prone_area_pct_snapshot"]), 1),
             "flood_mapped_pct": round(_float(row["flood_any_mapped_extent_pct_snapshot"]), 1),
             "flood_mapping_status": row["flood_mapping_status"],
@@ -121,11 +126,22 @@ class Engine:
         self.localities = load_localities()
         self.sites = load_sites()
         self.by_sal = {loc["sal"]: loc for loc in self.localities}
+        self.index_of = {loc["sal"]: i for i, loc in enumerate(self.localities)}
         self.site_index = {s["id"]: i for i, s in enumerate(self.sites)}
         self.metadata = {
             "index": json.loads(INDEX_META.read_text()) if INDEX_META.exists() else {},
             "model": json.loads(PU_META.read_text()) if PU_META.exists() else {},
         }
+        # Live index recalculation uses the notebook's own scaling and band cut-offs.
+        index_meta = self.metadata["index"]
+        self.ref_max = index_meta.get("log_scaling_reference_max", {})
+        self.w_hazard = index_meta.get("weights", {}).get("hazard", 0.5)
+        self.baseline_infra = sorted(loc["_infra_score"] for loc in self.localities)
+        self.band_cut = {
+            band: min(loc["_score"] for loc in self.localities if loc["index_band"] == band)
+            for band in ("High", "Medium")
+        }
+
         # For each locality: (distance_km, site_idx) for sites within MAX_RADIUS_KM, nearest first.
         self.nearby = []
         for loc in self.localities:
@@ -140,6 +156,81 @@ class Engine:
                     near.append((d, idx))
             near.sort()
             self.nearby.append(near)
+
+    # ---------- live index recalculation ----------
+    def _log_scaled(self, column, value):
+        ref = self.ref_max.get(column, 0)
+        if ref <= 0:
+            return 0.0
+        return max(0.0, min(1.0, math.log1p(max(0.0, value)) / math.log1p(ref)))
+
+    def _infra_percentile(self, score):
+        # Same convention as pandas rank(pct=True, method="average") against the baseline.
+        lo = bisect.bisect_left(self.baseline_infra, score)
+        hi = bisect.bisect_right(self.baseline_infra, score)
+        return (lo + hi + 1) / (2 * len(self.baseline_infra))
+
+    def _band_for(self, score):
+        if score >= self.band_cut["High"]:
+            return "High"
+        if score >= self.band_cut["Medium"]:
+            return "Medium"
+        return "Low"
+
+    def _infra_score(self, nearest, within5, within10):
+        return (self._log_scaled("nearest_optus_site_km", nearest)
+                + (1 - self._log_scaled("optus_sites_within_5km", within5))
+                + (1 - self._log_scaled("optus_sites_within_10km", within10))) / 3
+
+    def _working_infrastructure(self, loc_idx, failed):
+        """Nearest working site and working-site counts within 5 and 10 km."""
+        near = [(d, s) for d, s in self.nearby[loc_idx] if s not in failed]
+        if near:
+            nearest = near[0][0]
+        else:  # nothing working within MAX_RADIUS_KM: scan every site
+            loc = self.localities[loc_idx]
+            nearest = min(
+                (min(haversine_km(loc["lat"], loc["lon"], a, b) for a, b in s["positions"])
+                 for i, s in enumerate(self.sites) if i not in failed),
+                default=self.ref_max.get("nearest_optus_site_km", 500.0),
+            )
+        return nearest, sum(1 for d, _ in near if d <= 5), sum(1 for d, _ in near if d <= 10)
+
+    def post_disaster_bands(self, failed):
+        """Recalculate infrastructure sparsity for localities near failed sites and re-band them.
+
+        Hazard exposure is unchanged; only the three infrastructure features move.
+        """
+        if not failed:
+            return []
+        failed_positions = [pos for i in failed for pos in self.sites[i]["positions"]]
+        changes = []
+        for idx, loc in enumerate(self.localities):
+            reach = max(10.0, loc["nearest_site_km"] + 0.5)
+            if min(haversine_km(loc["lat"], loc["lon"], a, b) for a, b in failed_positions) > reach:
+                continue
+            # Apply only the change the failures cause to the stored score. The app's spherical
+            # distances differ slightly from the pipeline's geodesic ones, so recomputing from
+            # scratch could move bands even with no failures.
+            before = self._infra_score(*self._working_infrastructure(idx, set()))
+            nearest, within5, within10 = self._working_infrastructure(idx, failed)
+            after = self._infra_score(nearest, within5, within10)
+            infra = min(1.0, max(0.0, loc["_infra_score"] + after - before))
+            score = self.w_hazard * loc["_hazard_pct"] + (1 - self.w_hazard) * self._infra_percentile(infra)
+            # Failures only remove infrastructure, so a band can only rise. Keeping the stored band
+            # unless the score rises also respects the notebook's tie-breaks at the cut-offs.
+            order = {"Low": 0, "Medium": 1, "High": 2}
+            band = self._band_for(score) if after > before else loc["index_band"]
+            if order[band] > order[loc["index_band"]]:
+                changes.append({
+                    "sal": loc["sal"], "name": loc["name"], "population": loc["population"],
+                    "band_before": loc["index_band"], "band_after": band,
+                    "nearest_site_km_before": loc["nearest_site_km"],
+                    "nearest_site_km_after": round(nearest, 2),
+                })
+        order = {"High": 2, "Medium": 1, "Low": 0}
+        changes.sort(key=lambda c: (-(order[c["band_after"]] - order[c["band_before"]]), -c["population"]))
+        return changes
 
     # ---------- coverage ----------
     def _covered(self, loc_idx, radius_km, failed):
@@ -188,7 +279,13 @@ class Engine:
                     "index_band": loc["index_band"], "restored": idx in restored_set}
 
         lost_sorted = sorted(lost, key=lambda i: -self.localities[i]["population"])
+        band_changes = self.post_disaster_bands(failed)
         return {
+            "band_changes": {
+                "raised": sum(1 for c in band_changes if c["band_after"] != c["band_before"]),
+                "to_high": sum(1 for c in band_changes if c["band_after"] == "High"),
+                "list": band_changes,
+            },
             "assumptions": {
                 "coverage_km": coverage_km,
                 "unit_radius_km": unit_radius_km,

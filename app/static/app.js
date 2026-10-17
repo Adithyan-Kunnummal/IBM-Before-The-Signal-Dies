@@ -58,8 +58,12 @@
         renderer, radius: markerRadius(loc.population), weight: 0.6, color: css("--panel"),
         fillOpacity: 0.88,
       });
-      m.bindTooltip(() => `<strong>${escapeHtml(loc.name)}</strong><br>${fmt.format(loc.population)} residents · ` +
-        `${state.mode === "index" ? loc.index_band : loc.model_band} band`, { sticky: true });
+      m.bindTooltip(() => {
+        const raised = state.mode === "index" && raisedBands.has(loc.sal);
+        const band = state.mode === "index" ? currentIndexBand(loc) : loc.model_band;
+        return `<strong>${escapeHtml(loc.name)}</strong><br>${fmt.format(loc.population)} residents · ${band} band` +
+          (raised ? ` (was ${loc.index_band} before the disaster)` : "");
+      }, { sticky: true });
       m.on("click", () => selectLocality(loc.sal));
       m.addTo(locLayer);
       locMarkers[i] = m;
@@ -96,9 +100,13 @@
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
+  // sal -> band after the disaster, for localities whose susceptibility band rose.
+  let raisedBands = new Map();
+  const currentIndexBand = (loc) => raisedBands.get(loc.sal) || loc.index_band;
+
   function colourLocalities() {
     localities.forEach((loc, i) => {
-      const band = state.mode === "index" ? loc.index_band : loc.model_band;
+      const band = state.mode === "index" ? currentIndexBand(loc) : loc.model_band;
       locMarkers[i].setStyle({ fillColor: bandColor(band) });
     });
   }
@@ -218,6 +226,10 @@
   }
 
   function render(r) {
+    // Bands after the disaster are needed by every list below, so set them first.
+    raisedBands = new Map(r.band_changes.list.map((c) => [c.sal, c.band_after]));
+    const bandNow = (sal, before) => raisedBands.get(sal) || before;
+
     // sites
     const failed = new Set(r.failed_site_ids);
     siteMarkers.forEach((m, id) => {
@@ -294,7 +306,8 @@
       b.type = "button";
       b.addEventListener("click", () => selectLocality(item.sal, true));
       li.appendChild(b);
-      li.appendChild(el("span", `chip chip-band band-${item.index_band}`, item.index_band));
+      const now = bandNow(item.sal, item.index_band);
+      li.appendChild(el("span", `chip chip-band band-${now}`, now));
       li.appendChild(el("span", item.restored ? "tag-restored" : "pop",
         item.restored ? "restored" : fmt.format(item.population)));
       lost.appendChild(li);
@@ -302,9 +315,36 @@
     if (r.lost_coverage.list.length > 12) {
       lost.appendChild(el("li", "empty", `and ${r.lost_coverage.list.length - 12} more`));
     }
+    // susceptibility re-banded live
+    colourLocalities();
+    $("band-head").textContent = r.band_changes.list.length
+      ? `Susceptibility raised by the disaster: ${r.band_changes.list.length} localities, ${r.band_changes.to_high} now High`
+      : "Susceptibility raised by the disaster";
+    const bands = $("band-list");
+    bands.replaceChildren();
+    if (!r.band_changes.list.length) {
+      bands.appendChild(el("li", "empty", "No locality changes band."));
+    }
+    r.band_changes.list.slice(0, 8).forEach((c) => {
+      const li = el("li");
+      const b = el("button", "", c.name);
+      b.type = "button";
+      b.addEventListener("click", () => selectLocality(c.sal, true));
+      li.appendChild(b);
+      li.appendChild(el("span", "band-shift", `${c.band_before} → ${c.band_after}`));
+      li.appendChild(el("span", "pop", `${c.nearest_site_km_before} → ${c.nearest_site_km_after} km`));
+      bands.appendChild(li);
+    });
+    if (r.band_changes.list.length > 8) {
+      bands.appendChild(el("li", "empty", `and ${r.band_changes.list.length - 8} more`));
+    }
+
     const base = r.baseline_without_coverage;
     $("baseline-note").textContent =
-      `Before any disaster, ${fmt.format(base.localities)} localities (${fmt.format(base.residents)} residents) have no Optus site within ${r.assumptions.coverage_km} km of their centre point. ${r.lost_coverage.high_band_localities} of the communities losing coverage are in the High susceptibility band.`;
+      `Before any disaster, ${fmt.format(base.localities)} localities (${fmt.format(base.residents)} residents) have no Optus site within ${r.assumptions.coverage_km} km of their centre point.` +
+      (r.lost_coverage.list.length
+        ? ` After the disaster, ${r.lost_coverage.list.filter((i) => bandNow(i.sal, i.index_band) === "High").length} of the ${r.lost_coverage.list.length} communities losing coverage are in the High susceptibility band.`
+        : "");
   }
 
   // ---------- locality detail ----------
@@ -313,9 +353,8 @@
     const panel = $("detail");
     panel.hidden = false;
     $("d-text").textContent = "Loading…";
-    $("d-note").textContent = "";
     try {
-      const { locality: l, explanation: x } = await getJSON(`api/locality/${encodeURIComponent(sal)}`);
+      const { locality: l, explanation: x, live_model: live } = await getJSON(`api/locality/${encodeURIComponent(sal)}`);
       if (state.selected !== sal) return;
       if (pan) map.setView([l.lat, l.lon], Math.max(map.getZoom(), 9));
       $("d-name").textContent = l.name;
@@ -324,6 +363,9 @@
         el("span", `chip chip-band band-${l.index_band}`, `Index: ${l.index_band}`),
         el("span", `chip chip-band band-${l.model_band}`, `Model: ${l.model_band}`),
       );
+      if (raisedBands.has(l.sal)) {
+        chips.appendChild(el("span", `chip chip-band band-${raisedBands.get(l.sal)}`, `After disaster: ${raisedBands.get(l.sal)}`));
+      }
       if (l.reported_outage) chips.appendChild(el("span", "chip chip-warn", "In outage register"));
       if (!l.band_stable) chips.appendChild(el("span", "chip", "Borderline band"));
 
@@ -342,12 +384,95 @@
       dl.replaceChildren();
       facts.forEach(([k, v]) => { dl.appendChild(el("dt", "", k)); dl.appendChild(el("dd", "", String(v))); });
 
-      $("d-source").textContent = x.source === "granite" ? "Explanation by IBM Granite" : "Explanation from the data";
-      $("d-text").textContent = x.text;
-      $("d-note").textContent = x.note || "Granite was given only the facts above and told not to change any band or number.";
+      $("d-text").textContent = x;
+      renderLiveModel(live);
       panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
     } catch (err) {
       $("d-text").textContent = err.message;
+    }
+  }
+
+  const backendLabel = (name) => {
+    const info = (summary.model_service.backends || {})[name] || {};
+    return `${name === "snapml" ? "Snap ML" : "XGBoost"} on ${info.accelerator || "CPU"}`;
+  };
+  const featureLabel = (f) => f.replace(/_2025|_2021|_before_window/g, "").replace(/_/g, " ");
+
+  function renderLiveModel(live) {
+    const box = $("d-live");
+    box.hidden = !live;
+    if (!live) return;
+    const scores = $("d-live-scores");
+    scores.replaceChildren();
+    Object.entries(live.scores).forEach(([name, s]) => {
+      const span = el("span");
+      span.appendChild(el("strong", "", s.score.toFixed(3)));
+      span.appendChild(document.createTextNode(` ${backendLabel(name)} · ${s.ms} ms`));
+      scores.appendChild(span);
+    });
+    const list = $("d-live-contrib");
+    list.replaceChildren();
+    live.contributions.forEach((c) => {
+      const li = el("li");
+      li.appendChild(el("span", "", `${featureLabel(c.feature)} = ${c.value}`));
+      li.appendChild(el("span", c.contribution >= 0 ? "up" : "down",
+        `${c.contribution >= 0 ? "+" : ""}${c.contribution}`));
+      list.appendChild(li);
+    });
+  }
+
+  function renderPlatform() {
+    const ms = summary.model_service || { backends: {}, cpu: {}, errors: [] };
+    const cpu = ms.cpu || {};
+    $("platform-machine").textContent = summary.server_machine;
+    const facts = [
+      ["Processor architecture", cpu.machine || summary.server_machine],
+      ["Machine type", cpu.machine_type || "not reported"],
+      ["On-chip AI accelerator (NNPA)", cpu.nnpa ? "available" : "not detected"],
+      ["Python", summary.server_python],
+    ];
+    Object.entries(ms.backends).forEach(([name, info]) => {
+      facts.push([`Model via ${name === "snapml" ? "Snap ML" : "XGBoost"}`,
+        `${info.accelerator}${info.tree_format ? ` (${info.tree_format})` : ""}`]);
+    });
+    const dl = $("platform-facts");
+    dl.replaceChildren();
+    facts.forEach(([k, v]) => { dl.appendChild(el("dt", "", k)); dl.appendChild(el("dd", "", String(v))); });
+    $("platform-note").textContent = ms.errors.length ? ms.errors.join(" ") :
+      "Every model library was checked against the scores saved from the LinuxONE training run.";
+    $("run-bench").hidden = !Object.keys(ms.backends).length;
+
+    const chip = $("status-accel");
+    const accelInUse = Object.values(ms.backends).some((b) => /Telum/.test(b.accelerator || ""));
+    if (accelInUse || cpu.nnpa) {
+      chip.hidden = false;
+      chip.textContent = accelInUse ? "Telum AI accelerator in use" : "Telum AI accelerator available";
+      chip.className = `chip ${accelInUse ? "chip-ok" : "chip-muted"}`;
+    }
+  }
+
+  async function runBenchmark() {
+    const btn = $("run-bench");
+    btn.disabled = true;
+    btn.textContent = "Running…";
+    try {
+      const b = await getJSON("api/model/benchmark");
+      const rows = $("bench-rows");
+      rows.replaceChildren();
+      Object.entries(b.results).forEach(([name, r]) => {
+        const tr = el("tr");
+        tr.appendChild(el("td", "", name === "snapml" ? "Snap ML" : "XGBoost"));
+        tr.appendChild(el("td", "", ((b.backends[name] || {}).accelerator) || "CPU"));
+        tr.appendChild(el("td", "num", `${r.median_ms} ms`));
+        tr.appendChild(el("td", "num", `${r.per_locality_us} µs`));
+        rows.appendChild(tr);
+      });
+      $("bench").hidden = false;
+    } catch (err) {
+      $("platform-note").textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Run inference benchmark again";
     }
   }
 
@@ -364,9 +489,6 @@
     const srv = $("status-server");
     srv.textContent = `Running on ${summary.server_machine}${summary.server_machine === "s390x" ? " (IBM LinuxONE)" : ""}`;
     srv.className = `chip ${summary.server_machine === "s390x" ? "chip-ok" : "chip-muted"}`;
-    const g = $("status-granite");
-    g.textContent = summary.granite.connected ? "Granite connected" : "Granite not connected";
-    g.className = `chip ${summary.granite.connected ? "chip-ok" : "chip-warn"}`;
 
     const xgb = summary.model_test && summary.model_test.XGBoost;
     if (xgb) {
@@ -374,6 +496,8 @@
         `On held-out incidents it placed ${Math.round(xgb.captured_top_20pct * 100)}% of reported localities in its top 20% (random: 20%).`;
     }
 
+    renderPlatform();
+    $("run-bench").addEventListener("click", runBenchmark);
     buildMap();
     bindControls();
     applyPreset(summary.presets[0]);

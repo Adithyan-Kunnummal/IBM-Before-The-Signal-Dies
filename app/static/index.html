@@ -20,7 +20,7 @@
   </div>
   <div class="status" id="status">
     <span class="chip chip-muted" id="status-server">Connecting…</span>
-    <span class="chip chip-muted" id="status-granite">Granite: checking</span>
+    <span class="chip chip-muted" id="status-accel" hidden></span>
   </div>
 </header>
 
@@ -40,6 +40,8 @@
       <ol class="unit-list" id="unit-list"></ol>
       <h3 class="sub">Communities losing coverage</h3>
       <ul class="lost-list" id="lost-list"></ul>
+      <h3 class="sub" id="band-head">Susceptibility raised by the disaster</h3>
+      <ul class="lost-list" id="band-list"></ul>
       <p class="hint" id="baseline-note"></p>
     </section>
 
@@ -51,9 +53,13 @@
       <div class="chips" id="d-chips"></div>
       <dl class="facts" id="d-facts"></dl>
       <div class="explain">
-        <div class="explain-head"><span class="eyebrow" id="d-source"></span></div>
+        <div class="explain-head"><span class="eyebrow">Why this band</span></div>
         <p id="d-text"></p>
-        <p class="hint" id="d-note"></p>
+      </div>
+      <div class="explain" id="d-live" hidden>
+        <div class="explain-head"><span class="eyebrow">Reported-outage model, scored live</span></div>
+        <div class="live-scores" id="d-live-scores"></div>
+        <ul class="contrib" id="d-live-contrib"></ul>
       </div>
     </section>
 
@@ -116,12 +122,30 @@
       <p class="hint">Each unit goes where it restores coverage to the most residents.</p>
     </section>
 
+    <section class="block platform">
+      <div class="block-head">
+        <h2>Running on LinuxONE</h2>
+        <span class="eyebrow" id="platform-machine"></span>
+      </div>
+      <dl class="facts" id="platform-facts"></dl>
+      <button type="button" id="run-bench" class="btn-quiet">Run inference benchmark</button>
+      <div class="bench" id="bench" hidden>
+        <table>
+          <caption>Score all 1,699 localities in one batch (median of 30 runs)</caption>
+          <thead><tr><th scope="col">Library</th><th scope="col">Runs on</th><th scope="col">Batch</th><th scope="col">Per locality</th></tr></thead>
+          <tbody id="bench-rows"></tbody>
+        </table>
+      </div>
+      <p class="hint" id="platform-note"></p>
+    </section>
+
     <section class="block about">
       <details>
         <summary>How this works</summary>
         <p><strong>Susceptibility index.</strong> Seven measured features are scaled 0–1, averaged into hazard exposure (bushfire-prone area, mapped floodplain, recorded bushfires, cyclone tracks) and infrastructure sparsity (distance to the nearest Optus site, sites within 5 and 10 km), converted to WA percentiles and weighted 50/50. Top 20% High, next 30% Medium.</p>
         <p><strong>Reported-outage model.</strong> XGBoost trained on the Optus significant-outage register (114 reported localities, 19 independent incidents) and tested on held-out incidents. <span id="model-test"></span> It learns where significant outages get reported, which is mostly near Optus sites, so it complements the index rather than replacing it.</p>
         <p><strong>Simulation.</strong> The ACCC data has no per-site footprints, so a locality counts as covered when a working Optus site sits within the assumed coverage radius of its representative point. Scenarios are illustrative, not reconstructions of real events.</p>
+        <p><strong>Live re-banding.</strong> When sites fail, each nearby locality's distance to the nearest working site and its working-site counts are recalculated with the index's own scaling. Hazard exposure is unchanged, so bands can only rise.</p>
         <p><strong>Data.</strong> ABS 2021 Census, ACCC Optus sites (January 2025), DBCA fire history, DWER floodplain mapping, WA bushfire-prone areas, BOM cyclone tracks, Optus outage register.</p>
       </details>
     </section>

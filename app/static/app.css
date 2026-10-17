@@ -37,6 +37,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg);
@@ -220,6 +221,21 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .facts dd { margin: 0; font: 0.84rem var(--font-data); text-align: right; font-variant-numeric: tabular-nums; }
 .explain { display: grid; gap: 6px; padding: 10px 12px; background: var(--panel); border-radius: var(--radius); }
 .explain p { margin: 0; max-width: 62ch; }
+
+.live-scores { display: flex; flex-wrap: wrap; gap: 6px 14px; font: 0.82rem var(--font-data); }
+.live-scores strong { font-weight: 500; color: var(--accent); }
+.contrib { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 0.8rem; }
+.contrib li { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.contrib .up { color: var(--lost); font-family: var(--font-data); }
+.contrib .down { color: var(--low); font-family: var(--font-data); }
+.band-shift { font: 500 0.72rem var(--font-data); white-space: nowrap; }
+
+.bench { overflow-x: auto; }
+.bench table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.bench caption { text-align: left; color: var(--muted); font-size: 0.78rem; padding-bottom: 4px; }
+.bench th, .bench td { text-align: left; padding: 4px 6px 4px 0; border-bottom: 1px solid var(--line); }
+.bench td.num { font-family: var(--font-data); text-align: right; }
+.bench th:nth-child(n+3) { text-align: right; }
 
 .about details { font-size: 0.85rem; }
 .about summary { cursor: pointer; font: 600 1.02rem/1.2 var(--font-display); }

@@ -18,11 +18,14 @@ from urllib.parse import unquote, urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from engine import Engine  # noqa: E402
 import explain  # noqa: E402
+from model_service import ModelService  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent / "static"
 MAX_BODY = 64 * 1024
 
 ENGINE = None
+MODEL = None
+BENCHMARK_CACHE = {}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -75,9 +78,22 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/static/"):
             return self._send_file(STATIC / path[len("/static/"):])
         if path == "/api/summary":
-            return self._send_json({**ENGINE.summary_payload(), "granite": explain.granite_status(),
+            return self._send_json({**ENGINE.summary_payload(),
                                     "server_machine": platform.machine(),
-                                    "server_python": platform.python_version()})
+                                    "server_python": platform.python_version(),
+                                    "model_service": MODEL.status})
+        if path == "/api/health":
+            return self._send_json({"status": "ok", "localities": len(ENGINE.localities),
+                                    "model_backends": sorted(MODEL.backends)})
+        if path == "/api/model/benchmark":
+            # Cached briefly so repeated clicks during a demo stay instant.
+            cached = BENCHMARK_CACHE.get("result")
+            if not cached or time.time() - BENCHMARK_CACHE["at"] > 60:
+                cached = MODEL.benchmark()
+                BENCHMARK_CACHE.update(result=cached, at=time.time())
+            if cached is None:
+                return self._error(HTTPStatus.SERVICE_UNAVAILABLE, "Live model inference is not available.")
+            return self._send_json(cached)
         if path == "/api/localities":
             return self._send_json(ENGINE.localities_payload())
         if path == "/api/sites":
@@ -87,8 +103,10 @@ class Handler(BaseHTTPRequestHandler):
             loc = ENGINE.by_sal.get(sal)
             if not loc:
                 return self._error(HTTPStatus.NOT_FOUND, f"No locality with code {sal}")
-            return self._send_json({"locality": loc,
-                                    "explanation": explain.explain(loc, len(ENGINE.localities))})
+            public = {k: v for k, v in loc.items() if not k.startswith("_")}
+            return self._send_json({"locality": public,
+                                    "explanation": explain.explanation(loc, len(ENGINE.localities)),
+                                    "live_model": MODEL.score(ENGINE.index_of[sal])})
         return self._error(HTTPStatus.NOT_FOUND, "Not found")
 
     def do_POST(self):
@@ -117,7 +135,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global ENGINE
+    global ENGINE, MODEL
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8050)
@@ -127,10 +145,16 @@ def main():
     ENGINE = Engine()
     print(f"Loaded {len(ENGINE.localities)} localities and {len(ENGINE.sites)} Optus sites "
           f"in {time.perf_counter() - started:.1f}s", flush=True)
-    status = explain.granite_status()
-    print("Granite:", f"connected at {status['url']}" if status["connected"]
-          else "not configured (set GRANITE_URL to enable)", flush=True)
-
+    MODEL = ModelService(ENGINE.localities)
+    cpu = MODEL.cpu
+    print(f"CPU: {cpu['machine']} machine type {cpu['machine_type'] or 'n/a'}, "
+          f"AI accelerator (nnpa): {'yes' if cpu['nnpa'] else 'no'}", flush=True)
+    for name, info in MODEL.status["backends"].items():
+        print(f"Model backend {name}: {info.get('library')} on {info.get('accelerator')}"
+              f"{' (tree format ' + info['tree_format'] + ')' if 'tree_format' in info else ''}, "
+              f"matches stored scores: {info.get('agrees_with_stored')}", flush=True)
+    for message in MODEL.status["errors"]:
+        print("Model note:", message, flush=True)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"Serving on http://{args.host}:{args.port}  (Ctrl+C to stop)", flush=True)
     try:

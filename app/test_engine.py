@@ -58,19 +58,59 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(result["failed_site_ids"], [site_id])
 
 
+class LiveRebandingTests(unittest.TestCase):
+    ORDER = {"Low": 0, "Medium": 1, "High": 2}
+
+    def test_no_failures_changes_no_band(self):
+        self.assertEqual(ENGINE.simulate(coverage_km=10)["band_changes"]["list"], [])
+
+    def test_failures_only_raise_bands_and_increase_distance(self):
+        result = ENGINE.simulate(hazard=PERTH_HILLS, coverage_km=10)
+        changes = result["band_changes"]["list"]
+        self.assertGreater(len(changes), 0)
+        for c in changes:
+            self.assertGreater(self.ORDER[c["band_after"]], self.ORDER[c["band_before"]], c["name"])
+            self.assertGreaterEqual(c["nearest_site_km_after"], c["nearest_site_km_before"] - 0.5, c["name"])
+
+    def test_kimberley_cyclone_raises_broome_to_high(self):
+        result = ENGINE.simulate(hazard={"lat": -17.96, "lon": 122.24, "radius_km": 150, "failure_share": 100})
+        broome = [c for c in result["band_changes"]["list"] if c["name"] == "Broome"]
+        self.assertEqual(len(broome), 1)
+        self.assertEqual(broome[0]["band_after"], "High")
+
+
+class ModelServiceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from model_service import ModelService
+        cls.service = ModelService(ENGINE.localities)
+
+    def test_status_is_reported_even_without_libraries(self):
+        self.assertIn("cpu", self.service.status)
+        if not self.service.backends:
+            self.assertTrue(self.service.status["errors"])
+
+    def test_backends_agree_with_stored_scores(self):
+        if not self.service.backends:
+            self.skipTest("No model library installed")
+        for name, info in self.service.status["backends"].items():
+            self.assertTrue(info["agrees_with_stored"], f"{name}: {info}")
+        live = self.service.score(ENGINE.index_of["SAL50190"])  # Broome
+        for s in live["scores"].values():
+            self.assertAlmostEqual(s["score"], ENGINE.by_sal["SAL50190"]["model_score"], places=3)
+
+
 class ExplainTests(unittest.TestCase):
     def test_template_never_claims_100_percent(self):
         top = min(ENGINE.localities, key=lambda l: -l["hazard_percentile"])
-        text = explain.template_explanation(top, len(ENGINE.localities))
+        text = explain.explanation(top, len(ENGINE.localities))
         self.assertNotIn("100%", text.split("Main factors")[0])
         self.assertIn(top["index_band"], text)
 
-    def test_falls_back_to_template_without_granite(self):
-        if explain.GRANITE_URL:
-            self.skipTest("Granite configured")
-        out = explain.explain(ENGINE.localities[0], len(ENGINE.localities))
-        self.assertEqual(out["source"], "template")
-        self.assertIn("not connected", out["note"])
+    def test_explanation_is_plain_text_with_caveat(self):
+        out = explain.explanation(ENGINE.localities[0], len(ENGINE.localities))
+        self.assertIsInstance(out, str)
+        self.assertIn(explain.CAVEAT, out)
 
 
 if __name__ == "__main__":

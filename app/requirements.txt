@@ -1,0 +1,5 @@
+# Optional: the app runs without these, but live model inference needs them.
+# Versions match the LinuxONE training run (see models/xgb_pu_outage.json metadata).
+numpy>=1.26,<3
+xgboost==3.4.1
+snapml==1.17.2
