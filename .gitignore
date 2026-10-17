@@ -1,0 +1,8 @@
+# Ignore large uncompressed geospatial files
+*.gpkg
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
