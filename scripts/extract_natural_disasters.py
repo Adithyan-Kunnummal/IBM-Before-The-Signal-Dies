@@ -267,8 +267,9 @@ def extract_fires(path, start, end, localities, tree, stats):
             geometry = valid_geometry(shapely.transform(geometry, PROJECT, interleaved=False), stats)
             if geometry is None:
                 continue
-            for index in tree.query(geometry, predicate="intersects"):
-                if shapely.intersection(geometry, localities[index]).area <= 0:
+            for index in tree.query(geometry):
+                # Only a positive-area intersection counts; shared boundaries do not.
+                if not shapely.relate_pattern(geometry, localities[index], "2********"):
                     continue
                 events[index].add(key)
                 last_dates[index] = max(last_dates[index] or event_date, event_date)
@@ -303,7 +304,7 @@ def extract_cyclones(path, start, end, rows, radius, stats):
     events = [set() for _ in rows]
     last_dates = [None for _ in rows]
     winds, gusts = [None for _ in rows], [None for _ in rows]
-    lons, lats = [r["longitude"] for r in rows], [r["latitude"] for r in rows]
+    lons, lats = [float(r["longitude"]) for r in rows], [float(r["latitude"]) for r in rows]
     seen = set()
     for record in cyclone_records(path):
         stats["cyclone_source_track_points"] += 1

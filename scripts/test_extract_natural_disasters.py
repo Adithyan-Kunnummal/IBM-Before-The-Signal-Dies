@@ -84,6 +84,10 @@ class ExtractionChecks(unittest.TestCase):
                 (oid, gpkg_blob(town), number, "TEST", "2024/2025", 0, day, kind, poly)
                 for oid, number, day, kind, poly in records
             ])
+            db.execute("INSERT INTO DBCA_Fire_History_DBCA_060 VALUES(?,?,?,?,?,?,?,?,?)", (
+                7, gpkg_blob(box(119.8, -32.1, 120, -31.9)), "boundary-only", "TEST",
+                "2024/2025", 0, "2024-01-01", "WF", "Actual Burnt"
+            ))
             db.commit()
             db.close()
             with zipfile.ZipFile(root / extract.FILES["fire_history"], "w") as archive:
@@ -121,6 +125,7 @@ class ExtractionChecks(unittest.TestCase):
             self.assertEqual(float(town_row["bushfire_prone_area_pct_snapshot"]), 100)
             self.assertEqual(float(town_row["flood_1pct_aep_area_pct_snapshot"]), 100)
             self.assertEqual(other_row["flood_mapping_status"], "unknown_no_overlap")
+            self.assertEqual(other_row["dbca_recorded_bushfire_events"], "0")
             self.assertEqual(other_row["nearby_cyclone_centre_max_wind_ms"], "")
             quality = json.loads(output.with_suffix(".metadata.json").read_text())["quality_counts"]
             self.assertEqual(quality["fire_polygons_with_unresolved_event_identity"], 1)

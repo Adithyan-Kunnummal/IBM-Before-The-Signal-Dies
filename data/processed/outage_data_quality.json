@@ -1,0 +1,111 @@
+{
+  "as_of_date": "2026-10-17",
+  "raw_outage_records": 287,
+  "wa_mobile_reports": 39,
+  "wa_only_reports": 37,
+  "duration_mismatches": [],
+  "positive_localities": 114,
+  "unlabelled_localities": 1585,
+  "confirmed_negative_localities": 0,
+  "supervised_binary_training_ready": false,
+  "available_experiment": "positive-unlabelled retrospective locality modelling; not a calibrated next-day outage forecast",
+  "target_column": "reported_outage_label",
+  "target_values": {
+    "1": "Matched WA-only mobile outage report in supplied register",
+    "blank": "Unknown; absence of a report is not confirmed normal service"
+  },
+  "model_features": [
+    "population_2021",
+    "population_density_2021_per_km2",
+    "locality_area_km2",
+    "optus_site_count_2025",
+    "optus_site_density_2025_per_km2",
+    "nearest_optus_site_km",
+    "optus_sites_within_5km",
+    "optus_sites_within_10km",
+    "recorded_bushfire_count_before_window",
+    "recorded_bushfires_per_year_before_window",
+    "nearby_cyclone_track_count_before_window"
+  ],
+  "history_start_inclusive_utc": "2020-12-12",
+  "history_cutoff_exclusive_utc": "2025-12-12",
+  "label_window_start_wa": "2025-12-13",
+  "label_window_end_exclusive_wa": "2026-10-05",
+  "quality_counts": {
+    "location_match_status_counts": {
+      "matched_exact_normalized": 139,
+      "multi_state_requires_review": 4526,
+      "unmatched_name": 4
+    },
+    "empty_geometries": 2,
+    "unique_optus_sites": 943,
+    "site_ids_with_multiple_source_positions": [
+      6000008,
+      6000026,
+      6000039,
+      6008002,
+      6008004,
+      6009006,
+      6010002,
+      6015004,
+      6017007,
+      6018006,
+      6025001,
+      6100002,
+      6100018,
+      6105005,
+      6105010,
+      6150002,
+      6154001,
+      6160003,
+      6992001
+    ],
+    "fire_source_type_counts": {
+      "999": 45682,
+      "PB": 36119,
+      "WF": 67820
+    },
+    "fire_source_latest_wildfire_date": "2026-06-23T00:00:00.000Z",
+    "fire_polygons_in_history_window": 3547,
+    "fire_polygons_with_unresolved_event_identity": 5,
+    "cyclone_source_track_points": 31706,
+    "cyclone_track_points_in_history_window": 1800
+  },
+  "outputs": {
+    "wa_locality_features.csv": {
+      "rows": 1699,
+      "bytes": 352460,
+      "sha256": "b131669c0e6e4d659f53464cc7261edcc0a0d8cd9b14ecbd97e40ab24a596b42"
+    },
+    "wa_outages_clean.csv": {
+      "rows": 39,
+      "bytes": 69680,
+      "sha256": "b487e913610ba8da7c6d3ae864d6af7f1b0d6285bde06bdbbef5410e9455edc2"
+    },
+    "wa_outage_location_matches.csv": {
+      "rows": 4669,
+      "bytes": 251827,
+      "sha256": "0ded3b5bd755409c5a33b8b79ccda1a30cf5f8d948009cf202929d5cc5d11466"
+    },
+    "wa_outage_modelling.csv": {
+      "rows": 1699,
+      "bytes": 266396,
+      "sha256": "e35cf245ae48786a8e5bc7825ed45025ba3893f7e1b6771e30fc322eccf55341"
+    }
+  },
+  "excluded_from_model_inputs": [
+    "Outage causes, affected-service counts, duration, report IDs and matched-report counts are diagnostics/labels only.",
+    "Current hazard-zone percentages and October-2026 fire/cyclone aggregates are in the current planning table only. They are excluded from historical model inputs.",
+    "Rainfall and local daily wind are excluded by user choice. Cyclone-centre winds are not substituted for local wind."
+  ],
+  "limitations": [
+    "The register is a selected set of reported incidents, not complete network availability. Unlabelled localities can contain unreported outages.",
+    "Multi-state reports lack per-town state assignment and are held for review. Unmatched names are not fuzzily assigned.",
+    "Five-year fire/cyclone features use event dates before the observation window, but current source snapshots may contain later revisions and do not reconstruct publication availability.",
+    "Census population is 2021 and infrastructure is January 2025. Site proximity is measured at locality interior representative points, not every resident's address.",
+    "All sites in the supplied bounding-rectangle extract are used for nearest/radius searches. Only sites intersecting a locality count towards its area density.",
+    "Site counts are distinct RFNSA identifiers, not confirmed physical towers. Multiple coordinates for one identifier are preserved; radius counts use the minimum distance per identifier. An identifier with positions in different localities can count once in each locality.",
+    "Hazard-only history omits live disaster conditions. This table cannot establish a time-specific disaster outage probability.",
+    "No row split, imputation, scaling, invented negative labels or model fitting is performed. Fit preprocessing on a future training split only."
+  ]
+}
