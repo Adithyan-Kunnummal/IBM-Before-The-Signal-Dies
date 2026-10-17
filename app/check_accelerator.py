@@ -47,15 +47,15 @@ def main():
     except ImportError as exc:
         print(f"Snap ML not importable ({exc}); skipping the Snap ML checks.")
     else:
-        print(f"\nSnap ML {getattr(snapml, '__version__', '')}: input type x tree format")
+        print(f"\nSnap ML {getattr(snapml, '__version__', '')}: model layout x tree format")
         reference = service.backends["xgboost"](service.X) if "xgboost" in service.backends else None
         stored = np.array(service.stored)
-        for input_type in ("xgb_json", "xgb"):
+        for layout, path in ms.snapml_model_files():
             for tree_format in ("zdnn_tensors", "compress_trees", "ensemble", "auto"):
-                label = f"{input_type:9s} {tree_format:15s}"
+                label = f"{layout:17s} {tree_format:15s}"
                 model = BoostingMachineClassifier()
                 try:
-                    model.import_model(str(ms.MODEL_PATH), input_type=input_type, tree_format=tree_format)
+                    model.import_model(str(path), input_type="xgb_json", tree_format=tree_format)
                     started = time.perf_counter()
                     for _ in range(20):
                         preds = model.predict_proba(service.X)[:, 1]

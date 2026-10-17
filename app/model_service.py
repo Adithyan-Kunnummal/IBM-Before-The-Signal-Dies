@@ -14,6 +14,7 @@ import json
 import os
 import platform
 import statistics
+import tempfile
 import time
 from pathlib import Path
 
@@ -27,6 +28,38 @@ QUALITY_JSON = ROOT / "data" / "processed" / "outage_data_quality.json"
 SNAPML_TREE_FORMATS = [f.strip() for f in os.environ.get(
     "SNAPML_TREE_FORMATS", "zdnn_tensors,auto").split(",") if f.strip()]
 AGREEMENT_TOLERANCE = 1e-3
+
+
+def snapml_model_files():
+    """The trained model, then copies in older XGBoost JSON layouts for Snap ML.
+
+    Snap ML 1.17 reads XGBoost JSON from before XGBoost 3, which wrote base_score as a
+    plain number and had no categorical "cats" block; with the 3.x layout it reports
+    "no objective defined". The copies change only the layout, not the trees, and every
+    backend is still checked against the stored scores.
+    """
+    yield "original", MODEL_PATH
+    model = json.loads(MODEL_PATH.read_text())
+    learner = model["learner"]
+    param = learner["learner_model_param"]
+    param["base_score"] = param["base_score"].strip("[]")
+    param.pop("num_target", None)
+    booster = learner["gradient_booster"]["model"]
+    booster.pop("cats", None)
+    booster.pop("iteration_indptr", None)
+    model["version"] = [2, 1, 4]
+    folder = Path(tempfile.mkdtemp(prefix="snapml-model-"))
+    yield "xgboost-2-layout", _write(folder / "xgb_v2.json", model)
+    # Older still: the objective repeated as a training parameter and attribute.
+    learner["learner_train_param"] = {"booster": "gbtree", "objective": learner["objective"]["name"]}
+    learner["attributes"] = {"objective": learner["objective"]["name"]}
+    model["version"] = [1, 7, 6]
+    yield "xgboost-1-layout", _write(folder / "xgb_v1.json", model)
+
+
+def _write(path, model):
+    path.write_text(json.dumps(model, separators=(",", ":")))
+    return path
 
 
 def cpu_info():
@@ -58,7 +91,8 @@ class ModelService:
             return
 
         self.features = json.loads(QUALITY_JSON.read_text())["model_features"]
-        rows = {r["sal_code_2021"]: r for r in csv.DictReader(open(FEATURES_CSV, newline="", encoding="utf-8"))}
+        with open(FEATURES_CSV, newline="", encoding="utf-8") as handle:
+            rows = {r["sal_code_2021"]: r for r in csv.DictReader(handle)}
         self.X = np.array([[float(rows[s][f]) for f in self.features] for s in self.sals], dtype=np.float32)
         self._load_xgboost()
         self._load_snapml()
@@ -89,30 +123,32 @@ class ModelService:
             self.status["errors"].append("snapml is not installed (pip install snapml on LinuxONE).")
             return
         errors = []
-        for tree_format in SNAPML_TREE_FORMATS:
-            model = BoostingMachineClassifier()
-            try:
+        for layout, path in snapml_model_files():
+            for tree_format in SNAPML_TREE_FORMATS:
+                model = BoostingMachineClassifier()
                 try:
-                    model.import_model(str(MODEL_PATH), input_type="xgb_json", tree_format=tree_format)
-                except TypeError:  # older Snap ML without tree_format
-                    model.import_model(str(MODEL_PATH), input_type="xgb_json")
-                    tree_format = "default"
-                # One prediction proves the format works on this machine.
-                model.predict_proba(self.X[:2])
-            except Exception as exc:  # Snap ML raises various errors per format
-                errors.append(f"{tree_format}: {exc.__class__.__name__}: {exc}")
-                continue
+                    try:
+                        model.import_model(str(path), input_type="xgb_json", tree_format=tree_format)
+                    except TypeError:  # older Snap ML without tree_format
+                        model.import_model(str(path), input_type="xgb_json")
+                        tree_format = "default"
+                    # One prediction proves the format works on this machine.
+                    model.predict_proba(self.X[:2])
+                except Exception as exc:  # Snap ML raises various errors per format
+                    errors.append(f"{layout}/{tree_format}: {exc.__class__.__name__}: {exc}")
+                    continue
 
-            def predict(X, m=model):
-                return m.predict_proba(X)[:, 1]
-            self.backends["snapml"] = predict
-            self.status["backends"]["snapml"] = {
-                "library": f"snapml {getattr(snapml, '__version__', '')}".strip(),
-                "tree_format": tree_format,
-                "accelerator": ("Telum AI accelerator (zDNN)" if tree_format == "zdnn_tensors" and self.cpu["nnpa"]
-                                else "CPU"),
-            }
-            return
+                def predict(X, m=model):
+                    return m.predict_proba(X)[:, 1]
+                self.backends["snapml"] = predict
+                self.status["backends"]["snapml"] = {
+                    "library": f"snapml {getattr(snapml, '__version__', '')}".strip(),
+                    "model_layout": layout,
+                    "tree_format": tree_format,
+                    "accelerator": ("Telum AI accelerator (zDNN)" if tree_format == "zdnn_tensors" and self.cpu["nnpa"]
+                                    else "CPU"),
+                }
+                return
         self.status["errors"].append(f"Snap ML could not load the model ({'; '.join(errors)}).")
 
     def _verify(self):
