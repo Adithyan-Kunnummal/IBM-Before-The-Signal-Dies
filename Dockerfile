@@ -6,7 +6,9 @@
 #     --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
 #     --memory 1g --pids-limit 256 signal-dies
 
-# ---- build stage: compilers only live here, in case a package has no s390x wheel ----
+# ---- build stage: compilers only live here ----
+# scikit-learn and SciPy (needed by Snap ML) have no s390x wheels, so they compile here.
+# Expect the first build to take 20-40 minutes; later builds reuse the cached layer.
 FROM python:3.12-slim AS build
 RUN apt-get update \
  && apt-get install -y --no-install-recommends build-essential cmake gfortran pkg-config libopenblas-dev \
@@ -18,8 +20,9 @@ RUN pip wheel --no-cache-dir --wheel-dir /wheels -r /tmp/requirements.txt
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
+# Runtime libraries for packages compiled in the build stage (SciPy needs the Fortran runtime).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends libgomp1 libopenblas0 \
+ && apt-get install -y --no-install-recommends libgomp1 libopenblas0 libgfortran5 \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin appuser
 COPY --from=build /wheels /wheels
